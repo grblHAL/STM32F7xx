@@ -1,0 +1,15 @@
+[submodule "grbl"]
+	path = grbl
+	url = https://github.com/grblHAL/core
+[submodule "eeprom"]
+	path = eeprom
+	url = https://github.com/grblHAL/Plugin_EEPROM
+[submodule "networking"]
+	path = networking
+	url = https://github.com/grblHAL/Plugin_networking
+[submodule "sdcard"]
+	path = sdcard
+	url = https://github.com/grblHAL/Plugin_SD_card
+[submodule "odometer"]
+	path = odometer
+	url = https://github.com/grblHAL/Plugin_odometer
