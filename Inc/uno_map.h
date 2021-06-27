@@ -19,8 +19,12 @@
   along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#if N_ABC_MOTORS
+#error "Axis configuration is not supported!"
+#endif
+
 #if TRINAMIC_ENABLE
-#error Trinamic plugin not supported!
+#error "Trinamic plugin not supported!"
 #endif
 
 #define BOARD_NAME "Generic Uno"
@@ -39,6 +43,7 @@
 #define Z_STEP_PORT             GPIOF // D4
 #define Z_STEP_PIN              14
 #define Z_STEP_BIT              (1<<Z_STEP_PIN)
+#define STEP_MASK               0
 #define STEP_OUTMODE            GPIO_SINGLE
 
 // Define step direction output pins.
@@ -51,13 +56,13 @@
 #define Z_DIRECTION_PORT        GPIOF // D7
 #define Z_DIRECTION_PIN         13
 #define Z_DIRECTION_BIT         (1<<Z_DIRECTION_PIN)
+#define DIRECTION_MASK          0
 #define DIRECTION_OUTMODE       GPIO_SINGLE
 
 // Define stepper driver enable/disable output pin.
-#define STEPPERS_DISABLE_PORT   GPIOF // D8
-#define STEPPERS_DISABLE_PIN    12
-#define STEPPERS_DISABLE_BIT    (1<<STEPPERS_DISABLE_PIN)
-#define STEPPERS_DISABLE_MASK   STEPPERS_DISABLE_BIT
+#define STEPPERS_ENABLE_PORT   GPIOF // D8
+#define STEPPERS_ENABLE_PIN    12
+#define STEPPERS_ENABLE_BIT    (1<<STEPPERS_ENABLE_PIN)
 
 // Define homing/hard limit switch input pins.
 #define X_LIMIT_PORT            GPIOD // D9
@@ -76,10 +81,6 @@
 #define Z_LIMIT_BIT             (1<<Z_LIMIT_PIN)
 #define LIMIT_MASK              (X_LIMIT_BIT|Y_LIMIT_BIT|Z_LIMIT_BIT) // All limit bits
 #define LIMIT_INMODE            GPIO_SINGLE
-
-// Comment out if Z limit pin is not assigned to an interrupt enabled pin on a different port.
-
-#define Z_LIMIT_POLL
 
 // Define spindle enable and spindle direction output pins.
 #ifdef VARIABLE_SPINDLE

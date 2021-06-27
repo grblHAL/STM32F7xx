@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2019-2021 Terje Io
+  Copyright (c) 2021 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -31,15 +31,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "main.h"
-#include "grbl/hal.h"
-#include "grbl/grbl.h"
-#include "grbl/nuts_bolts.h"
-#include "grbl/crossbar.h"
+#define ESTOP_ENABLE 0
 
 #ifndef OVERRIDE_MY_MACHINE
 #include "my_machine.h"
 #endif
+
+#include "main.h"
+#include "grbl/driver_opts.h"
 
 #define DIGITAL_OUT(port, bit, on) { port->BSRR = (on) ? bit : (bit << 16); }
 #define DIGITAL_IN(port, bit) (!!(port->IDR & bit))
@@ -50,89 +49,6 @@
 #define timeri(p) TIM ## p ## _IRQn
 #define timerHANDLER(p) timerh(p)
 #define timerh(p) TIM ## p ## _IRQHandler
-
-// Configuration
-// Set value to 1 to enable, 0 to disable
-
-#ifndef USB_SERIAL_CDC
-#define USB_SERIAL_CDC      0 // for UART comms
-#endif
-#ifndef ESTOP_ENABLE
-#define ESTOP_ENABLE        0
-#endif
-#ifndef SDCARD_ENABLE
-#define SDCARD_ENABLE       0
-#endif
-#ifndef KEYPAD_ENABLE
-#define KEYPAD_ENABLE       0
-#endif
-#ifndef ODOMETER_ENABLE
-#define ODOMETER_ENABLE     0
-#endif
-#ifndef PPI_ENABLE
-#define PPI_ENABLE       	0
-#endif
-#ifndef EEPROM_ENABLE
-#define EEPROM_ENABLE       0
-#endif
-#ifndef EEPROM_IS_FRAM
-#define EEPROM_IS_FRAM      0
-#endif
-#ifndef TRINAMIC_ENABLE
-#define TRINAMIC_ENABLE     0
-#endif
-#ifndef TRINAMIC_I2C
-#define TRINAMIC_I2C        0
-#endif
-#ifndef TRINAMIC_DEV
-#define TRINAMIC_DEV        0
-#endif
-
-#ifndef ETHERNET_ENABLE
-#define ETHERNET_ENABLE     0
-#endif
-#ifndef TELNET_ENABLE
-#define TELNET_ENABLE       0
-#endif
-#ifndef WEBSOCKET_ENABLE
-#define WEBSOCKET_ENABLE    0
-#endif
-#ifndef FTP_ENABLE
-#define FTP_ENABLE          0
-#elif !SDCARD_ENABLE
-#undef FTP_ENABLE
-#define FTP_ENABLE          0
-#endif
-
-#if ETHERNET_ENABLE
-#ifndef NETWORK_HOSTNAME
-#define NETWORK_HOSTNAME        "GRBL"
-#endif
-#ifndef NETWORK_IPMODE
-#define NETWORK_IPMODE          1 // 0 = static, 1 = DHCP, 2 = AutoIP
-#endif
-#ifndef NETWORK_IP
-#define NETWORK_IP              "192.168.5.1"
-#endif
-#ifndef NETWORK_GATEWAY
-#define NETWORK_GATEWAY         "192.168.5.1"
-#endif
-#ifndef NETWORK_MASK
-#define NETWORK_MASK            "255.255.255.0"
-#endif
-#ifndef NETWORK_TELNET_PORT
-#define NETWORK_TELNET_PORT     23
-#endif
-#ifndef NETWORK_WEBSOCKET_PORT
-#define NETWORK_WEBSOCKET_PORT  80
-#endif
-#ifndef NETWORK_HTTP_PORT
-#define NETWORK_HTTP_PORT       80
-#endif
-#if NETWORK_IPMODE < 0 || NETWORK_IPMODE > 2
-#error "Invalid IP mode selected!"
-#endif
-#endif
 
 // Define GPIO output mode options
 
@@ -251,50 +167,16 @@
 
 // End configuration
 
+#if BLUETOOTH_ENABLE
+#define SERIAL2_MOD
+#endif
+
 #if KEYPAD_ENABLE && !defined(KEYPAD_PORT)
 #error Keypad plugin not supported!
 #endif
 
 #if SDCARD_ENABLE && !defined(SD_CS_PORT)
 #error SD card plugin not supported!
-#endif
-
-#ifndef X_STEP_PORT
-#define X_STEP_PORT STEP_PORT
-#endif
-#ifndef Y_STEP_PORT
-#define Y_STEP_PORT STEP_PORT
-#endif
-#ifndef Z_STEP_PORT
-#define Z_STEP_PORT STEP_PORT
-#endif
-#ifndef A_STEP_PORT
-#define A_STEP_PORT STEP_PORT
-#endif
-#ifndef B_STEP_PORT
-#define B_STEP_PORT STEP_PORT
-#endif
-#ifndef C_STEP_PORT
-#define C_STEP_PORT STEP_PORT
-#endif
-
-#ifndef X_DIRECTION_PORT
-#define X_DIRECTION_PORT DIRECTION_PORT
-#endif
-#ifndef Y_DIRECTION_PORT
-#define Y_DIRECTION_PORT DIRECTION_PORT
-#endif
-#ifndef Z_DIRECTION_PORT
-#define Z_DIRECTION_PORT DIRECTION_PORT
-#endif
-#ifndef A_DIRECTION_PORT
-#define A_DIRECTION_PORT DIRECTION_PORT
-#endif
-#ifndef B_DIRECTION_PORT
-#define B_DIRECTION_PORT DIRECTION_PORT
-#endif
-#ifndef C_DIRECTION_PORT
-#define C_DIRECTION_PORT DIRECTION_PORT
 #endif
 
 #ifndef STEP_PINMODE
@@ -305,27 +187,8 @@
 #define DIRECTION_PINMODE PINMODE_OUTPUT
 #endif
 
-#ifndef STEPPERS_DISABLE_PINMODE
-#define STEPPERS_DISABLE_PINMODE PINMODE_OUTPUT
-#endif
-
-#ifndef X_LIMIT_PORT
-#define X_LIMIT_PORT LIMIT_PORT
-#endif
-#ifndef Y_LIMIT_PORT
-#define Y_LIMIT_PORT LIMIT_PORT
-#endif
-#ifndef Z_LIMIT_PORT
-#define Z_LIMIT_PORT LIMIT_PORT
-#endif
-#ifndef A_LIMIT_PORT
-#define A_LIMIT_PORT LIMIT_PORT
-#endif
-#ifndef B_LIMIT_PORT
-#define B_LIMIT_PORT LIMIT_PORT
-#endif
-#ifndef C_LIMIT_PORT
-#define C_LIMIT_PORT LIMIT_PORT
+#ifndef STEPPERS_ENABLE_PINMODE
+#define STEPPERS_ENABLE_PINMODE PINMODE_OUTPUT
 #endif
 
 #ifndef RESET_PORT
@@ -345,16 +208,20 @@ typedef struct {
     pin_function_t id;
     GPIO_TypeDef *port;
     uint8_t pin;
+    uint32_t bit;
     pin_group_t group;
     volatile bool active;
     volatile bool debounce;
     pin_irq_mode_t irq_mode;
+    pin_mode_t cap;
+    ioport_interrupt_callback_ptr interrupt_callback;
 } input_signal_t;
 
 typedef struct {
     pin_function_t id;
     GPIO_TypeDef *port;
     uint8_t pin;
+    uint32_t bit;
     pin_group_t group;
     pin_mode_t mode;
 } output_signal_t;
@@ -369,9 +236,9 @@ typedef struct {
 
 bool driver_init (void);
 void Driver_IncTick (void);
-#ifdef HAS_BOARD_INIT
-void board_init(pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_outputs);
-
+#ifdef HAS_IOPORTS
+void ioports_init(pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_outputs);
+void ioports_event (uint32_t bit);
 #endif
 
 #endif // __DRIVER_H__
