@@ -23,3 +23,6 @@
 [submodule "openpnp"]
 	path = openpnp
 	url = https://github.com/grblHAL/Plugin_OpenPNP
+[submodule "fans"]
+	path = fans
+	url = https://github.com/grblHAL/Plugin_fans
