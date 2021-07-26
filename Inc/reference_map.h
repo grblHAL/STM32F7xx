@@ -27,7 +27,7 @@
 #error "Trinamic plugin not supported!"
 #endif
 
-#error "Reference map is work in progress - pin assignments are subject to changes, do not use!"
+//#error "Reference map is work in progress - pin assignments are subject to changes, do not use!"
 
 #define BOARD_NAME "grblHAL reference map"
 #define HAS_IOPORTS

@@ -26,7 +26,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "driver.h"
+#include "grbl/stream.h"
 
 #define UART_PORT GPIOD
 #define UART_TX_PIN 8

@@ -80,6 +80,10 @@
 #include "bluetooth/bluetooth.h"
 #endif
 
+#if OPENPNP_ENABLE
+#include "openpnp/openpnp.h"
+#endif
+
 #if KEYPAD_ENABLE == 0
 #define KEYPAD_STROBE_BIT 0
 #endif
@@ -117,8 +121,8 @@ static input_signal_t inputpin[] = {
 #if PROBE_PIN
     { .id = Input_Probe,          .port = PROBE_PORT,         .pin = PROBE_PIN,           .group = PinGroup_Probe },
 #endif
-#ifdef KEYINTR_PIN
-    { .id = Input_KeypadStrobe,   .port = KEYINTR_PORT,       .pin = KEYINTR_PIN,         .group = PinGroup_Keypad },
+#ifdef KEYPAD_STROBE_PIN
+    { .id = Input_KeypadStrobe,   .port = KEYPAD_PORT,        .pin = KEYPAD_STROBE_PIN,   .group = PinGroup_Keypad },
 #endif
 #ifdef MODE_SWITCH_PIN
     { .id = Input_ModeSelect,     .port = MODE_PORT,          .pin = MODE_SWITCH_PIN,     .group = PinGroup_MPG },
@@ -177,13 +181,13 @@ static output_signal_t outputpin[] = {
     { .id = Output_StepY,           .port = Y_STEP_PORT,            .pin = Y_STEP_PIN,              .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
     { .id = Output_StepZ,           .port = Z_STEP_PORT,            .pin = Z_STEP_PIN,              .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
 #ifdef X2_STEP_PIN
-    { .id = Output_StepX,           .port = X2_STEP_PORT,           .pin = X2_STEP_PIN,             .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
+    { .id = Output_StepX_2,         .port = X2_STEP_PORT,           .pin = X2_STEP_PIN,             .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
 #endif
 #ifdef Y2_STEP_PIN
-    { .id = Output_StepY,           .port = Y2_STEP_PORT,           .pin = Y2_STEP_PIN,             .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
+    { .id = Output_StepY_2,         .port = Y2_STEP_PORT,           .pin = Y2_STEP_PIN,             .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
 #endif
 #ifdef Z2_STEP_PIN
-    { .id = Output_StepZ,           .port = Z2_STEP_PORT,           .pin = Z2_STEP_PIN,             .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
+    { .id = Output_StepZ_2,         .port = Z2_STEP_PORT,           .pin = Z2_STEP_PIN,             .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
 #endif
 #ifdef A_AXIS
     { .id = Output_StepA,           .port = A_STEP_PORT,            .pin = A_STEP_PIN,              .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
@@ -198,13 +202,13 @@ static output_signal_t outputpin[] = {
     { .id = Output_DirY,            .port = Y_DIRECTION_PORT,       .pin = Y_DIRECTION_PIN,         .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
     { .id = Output_DirZ,            .port = Z_DIRECTION_PORT,       .pin = Z_DIRECTION_PIN,         .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
 #ifdef X2_DIRECTION_PIN
-    { .id = Output_DirX,            .port = X2_DIRECTION_PORT,      .pin = X2_DIRECTION_PIN,        .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
+    { .id = Output_DirX_2,          .port = X2_DIRECTION_PORT,      .pin = X2_DIRECTION_PIN,        .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
 #endif
 #ifdef Y2_DIRECTION_PIN
-    { .id = Output_DirY,            .port = Y2_DIRECTION_PORT,      .pin = Y2_DIRECTION_PIN,        .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
+    { .id = Output_DirY_2,          .port = Y2_DIRECTION_PORT,      .pin = Y2_DIRECTION_PIN,        .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
 #endif
 #ifdef Z2_DIRECTION_PIN
-    { .id = Output_DirZ,            .port = Z2_DIRECTION_PORT,      .pin = Z2_DIRECTION_PIN,        .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
+    { .id = Output_DirZ_2,          .port = Z2_DIRECTION_PORT,      .pin = Z2_DIRECTION_PIN,        .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
 #endif
 #ifdef A_AXIS
     { .id = Output_DirA,            .port = A_DIRECTION_PORT,       .pin = A_DIRECTION_PIN,         .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
@@ -246,9 +250,9 @@ static output_signal_t outputpin[] = {
     { .id = Output_SpindleDir,      .port = SPINDLE_DIRECTION_PORT, .pin = SPINDLE_DIRECTION_PIN,   .group = PinGroup_SpindleControl },
 #endif
 #endif
-    { .id = Output_CoolantMist,     .port = COOLANT_FLOOD_PORT,     .pin = COOLANT_FLOOD_PIN,       .group = PinGroup_Coolant },
+    { .id = Output_CoolantFlood,    .port = COOLANT_FLOOD_PORT,     .pin = COOLANT_FLOOD_PIN,       .group = PinGroup_Coolant },
 #ifdef COOLANT_MIST_PIN
-    { .id = Output_CoolantFlood,    .port = COOLANT_MIST_PORT,      .pin = COOLANT_MIST_PIN,        .group = PinGroup_Coolant },
+    { .id = Output_CoolantMist,     .port = COOLANT_MIST_PORT,      .pin = COOLANT_MIST_PIN,        .group = PinGroup_Coolant },
 #endif
 #ifdef SD_CS_PORT
     { .id = Output_SdCardCS,        .port = SD_CS_PORT,             .pin = SD_CS_PIN,               .group = PinGroup_SdCard },
@@ -315,10 +319,6 @@ static spindle_pwm_t spindle_pwm;
 static void spindle_set_speed (uint_fast16_t pwm_value);
 #endif
 
-#if MODBUS_ENABLE
-static modbus_stream_t modbus_stream = {0};
-#endif
-
 #if SPINDLE_SYNC_ENABLE
 
 #include "grbl/spindle_sync.h"
@@ -373,8 +373,7 @@ static bool selectStream (const io_stream_t *stream)
         hal.stream.write_all = hal.stream.write;
 #endif
 
-    if(!hal.stream.enqueue_realtime_command)
-        hal.stream.enqueue_realtime_command = protocol_enqueue_realtime_command;
+    hal.stream.set_enqueue_rt_handler(protocol_enqueue_realtime_command);
 
     if(hal.stream.disable)
         hal.stream.disable(false);
@@ -396,7 +395,7 @@ static bool selectStream (const io_stream_t *stream)
         case StreamType_Serial:
 #if ETHERNET_ENABLE
             services.mask = 0;
-            write_serial = serial_connected ? hal.stream.write : NULL;
+            write_serial = stream->connected ? hal.stream.write : NULL;
 #endif
             hal.stream.connected = serial_connected;
             last_serial_stream = stream;
@@ -820,17 +819,17 @@ inline static limit_signals_t limitsGetState()
   #endif
 #elif LIMIT_INMODE == GPIO_MAP
     uint32_t bits = LIMIT_PORT->IDR;
-    signals.min.x = (bits & X_LIMIT_BIT) != 0;
-    signals.min.y = (bits & Y_LIMIT_BIT) != 0;
-    signals.min.z = (bits & Z_LIMIT_BIT) != 0;
+    signals.min.x = !!(bits & X_LIMIT_BIT);
+    signals.min.y = !!(bits & Y_LIMIT_BIT);
+    signals.min.z = !!(bits & Z_LIMIT_BIT);
   #ifdef A_LIMIT_PIN
-    signals.min.a = (bits & A_LIMIT_BIT) != 0;
+    signals.min.a = !!(bits & A_LIMIT_BIT);
   #endif
   #ifdef B_LIMIT_PIN
-    signals.min.b = (bits & B_LIMIT_BIT) != 0;
+    signals.min.b = !!(bits & B_LIMIT_BIT);
   #endif
   #ifdef C_LIMIT_PIN
-    signals.min.c = (bits & C_LIMIT_BIT) != 0;
+    signals.min.c = !!(bits & C_LIMIT_BIT);
   #endif
 #else
     signals.min.value = (uint8_t)((LIMIT_PORT->IDR & LIMIT_MASK) >> LIMIT_INMODE);
@@ -891,14 +890,14 @@ static control_signals_t systemGetState (void)
 #elif CONTROL_INMODE == GPIO_MAP
     uint32_t bits = CONTROL_PORT->IDR;
 #if ESTOP_ENABLE
-    signals.e_stop = (bits & RESET_BIT) != 0;
+    signals.e_stop = !!(bits & RESET_BIT);
 #else
-    signals.reset = (bits & RESET_BIT) != 0;
+    signals.reset = !!(bits & RESET_BIT);
 #endif
-    signals.feed_hold = (bits & FEED_HOLD_BIT) != 0;
-    signals.cycle_start = (bits & CYCLE_START_BIT) != 0;
+    signals.feed_hold = !!(bits & FEED_HOLD_BIT);
+    signals.cycle_start = !!(bits & CYCLE_START_BIT);
   #ifdef SAFETY_DOOR_PIN
-    signals.safety_door_ajar = (bits & SAFETY_DOOR_BIT) != 0;
+    signals.safety_door_ajar = !!(bits & SAFETY_DOOR_BIT);
   #endif
 #else
     signals.value = (uint8_t)((CONTROL_PORT->IDR & CONTROL_MASK) >> CONTROL_INMODE);
@@ -1480,7 +1479,7 @@ void settings_changed (settings_t *settings)
                 input->cap.pull_mode = (PullMode_Up|PullMode_Down);
                 if(!(input->bit & DRIVER_IRQMASK)) {
                     aux_irq |= input->bit;
-                    input->cap.irq_mode = (IRQ_Mode_Rising|IRQ_Mode_Falling);
+                    input->cap.irq_mode = (IRQ_Mode_Rising|IRQ_Mode_Falling|IRQ_Mode_Change);
                     // Map interrupt to pin
                     uint32_t extireg = SYSCFG->EXTICR[input->pin >> 2] & ~(0b1111 << ((input->pin & 0b11) << 2));
                     extireg |= ((uint32_t)(GPIO_GET_INDEX(input->port)) << ((input->pin & 0b11) << 2));
@@ -1567,6 +1566,7 @@ static void enumeratePins (bool low_level, pin_info_ptr pin_info)
         pin.group = inputpin[i].group;
         pin.port = low_level ? (void *)inputpin[i].port : (void *)port2char(inputpin[i].port);
         pin.mode.pwm = pin.group == PinGroup_SpindlePWM;
+        pin.description = inputpin[i].description;
 
         pin_info(&pin);
     };
@@ -1579,6 +1579,7 @@ static void enumeratePins (bool low_level, pin_info_ptr pin_info)
         pin.function = outputpin[i].id;
         pin.group = outputpin[i].group;
         pin.port = low_level ? (void *)outputpin[i].port : (void *)port2char(outputpin[i].port);
+        pin.description = outputpin[i].description;
 
         pin_info(&pin);
     };
@@ -1766,7 +1767,7 @@ bool driver_init (void)
 #endif
 
     hal.info = "STM32F756";
-    hal.driver_version = "210626";
+    hal.driver_version = "210718";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1907,33 +1908,8 @@ bool driver_init (void)
     enet_init();
 #endif
 
-#if TRINAMIC_ENABLE
-    trinamic_init();
-#endif
-
-#if KEYPAD_ENABLE
-    keypad_init();
-#endif
-
-#if MODBUS_ENABLE
-
-    serial2Init(115200);
-
-    modbus_stream.write = serial2Write;
-    modbus_stream.read = serial2GetC;
-    modbus_stream.flush_rx_buffer = serial2RxFlush;
-    modbus_stream.flush_tx_buffer = serial2TxFlush;
-    modbus_stream.get_rx_buffer_count = serial2RxCount;
-    modbus_stream.get_tx_buffer_count = serial2TxCount;
-    modbus_stream.set_baud_rate = serial2SetBaudRate;
-
-    bool modbus = modbus_init(&modbus_stream);
-
 #if SPINDLE_HUANYANG > 0
-    if(modbus)
-        huanyang_init(&modbus_stream);
-#endif
-
+    huanyang_init(modbus_init(&modbus_stream));
 #endif
 
 #if BLUETOOTH_ENABLE
@@ -1944,11 +1920,7 @@ bool driver_init (void)
 #endif
 #endif
 
-    my_plugin_init();
-
-#if ODOMETER_ENABLE
-    odometer_init(); // NOTE: this *must* be last plugin to be initialized as it claims storage at the end of NVS.
-#endif
+#include "grbl/plugins_init.h"
 
     // No need to move version check before init.
     // Compiler will fail any signature mismatch for existing entries.

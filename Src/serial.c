@@ -25,15 +25,18 @@
 
 #include "serial.h"
 #include "grbl/hal.h"
+#include "grbl/protocol.h"
 
 #include "main.h"
 
 static stream_rx_buffer_t rxbuf = {0};
 static stream_tx_buffer_t txbuf = {0};
+static enqueue_realtime_command_ptr enqueue_realtime_command = protocol_enqueue_realtime_command;
 
 #ifdef SERIAL2_MOD
 static stream_rx_buffer_t rxbuf2 = {0};
 static stream_tx_buffer_t txbuf2 = {0};
+static enqueue_realtime_command_ptr enqueue_realtime_command2 = stream_buffer_all;
 #endif
 
 #if defined(NUCLEO_F756)
@@ -50,6 +53,7 @@ static stream_tx_buffer_t txbuf2 = {0};
 static uint16_t serialRxFree (void)
 {
     uint16_t tail = rxbuf.tail, head = rxbuf.head;
+
     return RX_BUFFER_SIZE - BUFCOUNT(head, tail, RX_BUFFER_SIZE);
 }
 
@@ -58,7 +62,7 @@ static uint16_t serialRxFree (void)
 //
 static void serialRxFlush (void)
 {
-    rxbuf.head = rxbuf.tail = 0;
+    rxbuf.tail = rxbuf.head;
 }
 
 //
@@ -68,7 +72,7 @@ static void serialRxCancel (void)
 {
     rxbuf.data[rxbuf.head] = ASCII_CAN;
     rxbuf.tail = rxbuf.head;
-    rxbuf.head = (rxbuf.tail + 1) & (RX_BUFFER_SIZE - 1);
+    rxbuf.head = BUFNEXT(rxbuf.head, rxbuf);
 }
 
 //
@@ -89,9 +93,9 @@ inline static bool serialPutCNonBlocking (const char c)
 //
 static bool serialPutC (const char c)
 {
-//    if(txbuf.head != txbuf.tail || !serialPutCNonBlocking(c)) {           // Try to send character without buffering...
+//    if(txbuf.head != txbuf.tail || !serialPutCNonBlocking(c)) {         // Try to send character without buffering...
 
-        uint16_t next_head = (txbuf.head + 1) & (TX_BUFFER_SIZE - 1);   // .. if not, get pointer to next free slot in buffer
+        uint_fast16_t next_head = BUFNEXT(txbuf.head, txbuf);           // .. if not, get pointer to next free slot in buffer
 
         while(txbuf.tail == next_head) {                                // While TX buffer full
             if(!hal.stream_blocking_callback())                         // check if blocking for space,
@@ -133,13 +137,13 @@ void serialWrite(const char *s, uint16_t length)
 //
 static int16_t serialGetC (void)
 {
-    uint16_t bptr = rxbuf.tail;
+    uint_fast16_t bptr = rxbuf.tail;
 
     if(bptr == rxbuf.head)
         return -1; // no data available else EOF
 
-    char data = rxbuf.data[bptr++];             // Get next character, increment tmp pointer
-    rxbuf.tail = bptr & (RX_BUFFER_SIZE - 1);   // and update pointer
+    char data = rxbuf.data[bptr];       // Get next character
+    rxbuf.tail = BUFNEXT(bptr, rxbuf);  // and update pointer
 
     return (int16_t)data;
 }
@@ -172,6 +176,16 @@ static bool serialDisable (bool disable)
     return true;
 }
 
+static enqueue_realtime_command_ptr serialSetRtHandler (enqueue_realtime_command_ptr handler)
+{
+    enqueue_realtime_command_ptr prev = enqueue_realtime_command;
+
+    if(handler)
+        enqueue_realtime_command = handler;
+
+    return prev;
+}
+
 const io_stream_t *serialInit (uint32_t baud_rate)
 {
     static const io_stream_t stream = {
@@ -186,7 +200,8 @@ const io_stream_t *serialInit (uint32_t baud_rate)
         .cancel_read_buffer = serialRxCancel,
         .suspend_read = serialSuspendInput,
         .disable = serialDisable,
-        .set_baud_rate = serialSetBaudRate
+        .set_baud_rate = serialSetBaudRate,
+        .set_enqueue_rt_handler = serialSetRtHandler
     };
 
 #if defined(NUCLEO_F756)
@@ -234,37 +249,23 @@ const io_stream_t *serialInit (uint32_t baud_rate)
 void USART_IRQHandler (void)
 {
     if(USART->ISR & USART_ISR_RXNE) {
-
-        uint16_t next_head = (rxbuf.head + 1) & (RX_BUFFER_SIZE - 1);   // Get and increment buffer pointer
-
-        if(rxbuf.tail == next_head) {                                   // If buffer full
-            rxbuf.overflow = 1;                                         // flag overflow
-            next_head =  USART->RDR;                                     // and do dummy read to clear interrupt
-        } else {
-            char data = USART->RDR;
-            if(data == CMD_TOOL_ACK && !rxbuf.backup) {
-                stream_rx_backup(&rxbuf);
-                hal.stream.read = serialGetC; // restore normal input
-            } else if(!hal.stream.enqueue_realtime_command(data)) {     // Check and strip realtime commands,
-                rxbuf.data[rxbuf.head] = data;                          // if not add data to buffer
-                rxbuf.head = next_head;                                 // and update pointer
+        char data = USART->RDR;
+        if(!enqueue_realtime_command(data)) {                   // Check for and strip realtime commands,
+            uint_fast16_t next_head = BUFNEXT(rxbuf.head, rxbuf);
+            if(rxbuf.tail == next_head)
+                rxbuf.overflow = 1;                             // flag overflow
+            else {
+                rxbuf.data[rxbuf.head] = data;                  // if not add data to buffer
+                rxbuf.head = next_head;                         // and update pointer
             }
         }
     }
 
     if((USART->ISR & USART_ISR_TXE) && (USART->CR1 & USART_CR1_TXEIE)) {
-
-        uint16_t tail = txbuf.tail;             // Get buffer pointer
-
-        USART->TDR = txbuf.data[tail++];         // Send next character and increment pointer
-
-        if(tail == TX_BUFFER_SIZE)              // If at end
-            tail = 0;                           // wrap pointer around
-
-        txbuf.tail = tail;                      // Update global pointer
-
-        if(tail == txbuf.head)                  // If buffer empty then
-            USART->CR1 &= ~USART_CR1_TXEIE;     // disable UART TX interrupt
+        USART->TDR = txbuf.data[txbuf.tail];        // Send next character
+        txbuf.tail = BUFNEXT(txbuf.tail, txbuf);    // and increment pointer
+        if(txbuf.tail == txbuf.head)                // If buffer empty then
+            USART->CR1 &= ~USART_CR1_TXEIE;         // disable UART TX interrupt
    }
 
     if(USART->ISR & USART_ISR_ORE)
@@ -272,7 +273,6 @@ void USART_IRQHandler (void)
 }
 
 #ifdef SERIAL2_MOD
-
 #if defined(NUCLEO_F756) || defined(NUCLEO_F446)
 #define UART2 USART6
 #define UART2_IRQHandler USART6_IRQHandler
@@ -453,6 +453,16 @@ static bool serial2Disable (bool disable)
     return true;
 }
 
+static enqueue_realtime_command_ptr serial2SetRtHandler (enqueue_realtime_command_ptr handler)
+{
+    enqueue_realtime_command_ptr prev = enqueue_realtime_command2;
+
+    if(handler)
+        enqueue_realtime_command2 = handler;
+
+    return prev;
+}
+
 const io_stream_t *serial2Init (uint32_t baud_rate)
 {
     static const io_stream_t stream = {
@@ -471,7 +481,8 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
         .cancel_read_buffer = serial2RxCancel,
     //    .suspend_read = serial2SuspendInput,
         .disable = serial2Disable,
-        .set_baud_rate = serial2SetBaudRate
+        .set_baud_rate = serial2SetBaudRate,
+        .set_enqueue_rt_handler = serial2SetRtHandler
     };
 
 #if defined(NUCLEO_F756) || defined(NUCLEO_F446)
@@ -530,16 +541,11 @@ void UART2_IRQHandler (void)
             rxbuf.overflow = 1;                                         // flag overflow
             next_head = UART2->RDR;                                     // and do dummy read to clear interrupt
         } else {
-#if MODBUS_ENABLE || TRINAMIC_ENABLE == 2209
-            rxbuf2.data[rxbuf2.head] = UART2->DR;                       // if not add data to buffer
-            rxbuf2.head = next_head;                                    // and update pointer
-#else
             char data = UART2->RDR;
-            if(!hal.stream.enqueue_realtime_command(data)) {            // Check and strip realtime commands,
+            if(!enqueue_realtime_command(data)) {                       // Check and strip realtime commands,
                 rxbuf2.data[rxbuf2.head] = data;                        // if not add data to buffer
                 rxbuf2.head = next_head;                                // and update pointer
             }
-#endif
         }
     }
 

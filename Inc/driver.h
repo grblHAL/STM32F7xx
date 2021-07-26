@@ -215,6 +215,7 @@ typedef struct {
     pin_irq_mode_t irq_mode;
     pin_mode_t cap;
     ioport_interrupt_callback_ptr interrupt_callback;
+    const char *description;
 } input_signal_t;
 
 typedef struct {
@@ -224,6 +225,7 @@ typedef struct {
     uint32_t bit;
     pin_group_t group;
     pin_mode_t mode;
+    const char *description;
 } output_signal_t;
 
 typedef struct {

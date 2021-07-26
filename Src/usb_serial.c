@@ -27,6 +27,7 @@
 
 #include "serial.h"
 #include "../grbl/grbl.h"
+#include "../grbl/protocol.h"
 
 #include "main.h"
 #include "usbd_cdc_if.h"
@@ -36,6 +37,7 @@ static char txdata2[BLOCK_TX_BUFFER_SIZE]; // Secondary TX buffer (for double bu
 static bool use_tx2data = false;
 static stream_rx_buffer_t rxbuf = {0};
 static stream_block_tx_buffer_t txbuf = {0};
+static enqueue_realtime_command_ptr enqueue_realtime_command = protocol_enqueue_realtime_command;
 
 //
 // Returns number of free characters in the input buffer
@@ -153,6 +155,16 @@ static bool usbSuspendInput (bool suspend)
     return stream_rx_suspend(&rxbuf, suspend);
 }
 
+static enqueue_realtime_command_ptr usbSetRtHandler (enqueue_realtime_command_ptr handler)
+{
+    enqueue_realtime_command_ptr prev = enqueue_realtime_command;
+
+    if(handler)
+        enqueue_realtime_command = handler;
+
+    return prev;
+}
+
 // NOTE: USB interrupt priority should be set lower than stepper/step timer to avoid jitter
 // It is set in HAL_PCD_MspInit() in usbd_conf.c
 const io_stream_t *usbInit (void)
@@ -166,7 +178,8 @@ const io_stream_t *usbInit (void)
         .get_rx_buffer_free = usbRxFree,
         .reset_read_buffer = usbRxFlush,
         .cancel_read_buffer = usbRxCancel,
-        .suspend_read = usbSuspendInput
+        .suspend_read = usbSuspendInput,
+        .set_enqueue_rt_handler = usbSetRtHandler
     };
 
     MX_USB_DEVICE_Init();
@@ -190,7 +203,7 @@ void usbBufferInput (uint8_t *data, uint32_t length)
             if(*data == CMD_TOOL_ACK && !rxbuf.backup) {
                 stream_rx_backup(&rxbuf);
                 hal.stream.read = usbGetC; // restore normal input
-            } else if(!hal.stream.enqueue_realtime_command(*data)) {        // Check and strip realtime commands,
+            } else if(!enqueue_realtime_command(*data)) {                   // Check and strip realtime commands,
                 rxbuf.data[rxbuf.head] = *data;                             // if not add data to buffer
                 rxbuf.head = next_head;                                     // and update pointer
             }
