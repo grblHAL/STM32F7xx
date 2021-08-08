@@ -542,7 +542,7 @@ void UART2_IRQHandler (void)
             next_head = UART2->RDR;                                     // and do dummy read to clear interrupt
         } else {
             char data = UART2->RDR;
-            if(!enqueue_realtime_command(data)) {                       // Check and strip realtime commands,
+            if(!enqueue_realtime_command2(data)) {                      // Check and strip realtime commands,
                 rxbuf2.data[rxbuf2.head] = data;                        // if not add data to buffer
                 rxbuf2.head = next_head;                                // and update pointer
             }
@@ -564,9 +564,9 @@ void UART2_IRQHandler (void)
             UART2->CR1 &= ~USART_CR1_TXEIE;     // disable UART TX interrupt
    }
 
-    if(USART->ISR & USART_ISR_FE)
-        USART->ICR &= USART_ICR_FECF;
+    if(UART2->ISR & USART_ISR_FE)
+        UART2->ICR &= USART_ICR_FECF;
 
-    USART->ICR = USART->ISR;
+    UART2->ICR = UART2->ISR;
 }
 #endif

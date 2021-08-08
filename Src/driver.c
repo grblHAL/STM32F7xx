@@ -1489,6 +1489,7 @@ void settings_changed (settings_t *settings)
 
             GPIO_Init.Pin = input->bit;
             GPIO_Init.Pull = pullup ? GPIO_PULLUP : GPIO_NOPULL;
+
             switch(input->irq_mode) {
                 case IRQ_Mode_Rising:
                     GPIO_Init.Mode = GPIO_MODE_IT_RISING;
@@ -1542,6 +1543,8 @@ void settings_changed (settings_t *settings)
             HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
         }
     }
+
+    hal.limits.enable(settings->limits.flags.hard_enabled, false);
 }
 
 static char *port2char (GPIO_TypeDef *port)
@@ -1767,7 +1770,7 @@ bool driver_init (void)
 #endif
 
     hal.info = "STM32F756";
-    hal.driver_version = "210718";
+    hal.driver_version = "210808";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
