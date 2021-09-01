@@ -194,21 +194,16 @@ const io_stream_t *usbInit (void)
 void usbBufferInput (uint8_t *data, uint32_t length)
 {
     while(length--) {
-
-        uint_fast16_t next_head = (rxbuf.head + 1)  & (RX_BUFFER_SIZE - 1); // Get and increment buffer pointer
-
-        if(rxbuf.tail == next_head) {                                       // If buffer full
-            rxbuf.overflow = 1;                                             // flag overflow
-        } else {
-            if(*data == CMD_TOOL_ACK && !rxbuf.backup) {
-                stream_rx_backup(&rxbuf);
-                hal.stream.read = usbGetC; // restore normal input
-            } else if(!enqueue_realtime_command(*data)) {                   // Check and strip realtime commands,
-                rxbuf.data[rxbuf.head] = *data;                             // if not add data to buffer
-                rxbuf.head = next_head;                                     // and update pointer
+        if(!enqueue_realtime_command(*data)) {                  // Check and strip realtime commands,
+            uint16_t next_head = BUFNEXT(rxbuf.head, rxbuf);    // Get and increment buffer pointer
+            if(next_head == rxbuf.tail)                         // If buffer full
+                rxbuf.overflow = 1;                             // flag overflow
+            else {
+                rxbuf.data[rxbuf.head] = *data;                 // if not add data to buffer
+                rxbuf.head = next_head;                         // and update pointer
             }
         }
-        data++;                                                             // next
+        data++;                                                 // next...
     }
 }
 
