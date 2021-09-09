@@ -38,6 +38,9 @@
 #include "grbl/nvs_buffer.h"
 
 #include "networking/networking.h"
+#if HTTP_ENABLE
+#include "networking/httpd.h"
+#endif
 
 static volatile bool linkUp = false;
 static char IPAddress[IP4ADDR_STRLEN_MAX];
@@ -96,7 +99,12 @@ static void netif_status_callback (struct netif *netif)
             services.ftp = On;
         }
 #endif
-
+#if HTTP_ENABLE
+        if(network.services.http && !services.http) {
+            httpd_init();
+            services.http = On;
+        }
+#endif
 #if WEBSOCKET_ENABLE
         if(network.services.websocket && !services.websocket) {
             WsStreamInit();
@@ -109,7 +117,7 @@ static void netif_status_callback (struct netif *netif)
 
 static void enet_poll (sys_state_t state)
 {
-    static uint32_t last_ms0, last_ms1;
+    static uint32_t last_ms0;
     uint32_t ms = hal.get_elapsed_ticks();
 
     ethernetif_set_link(netif_default);
@@ -119,11 +127,11 @@ static void enet_poll (sys_state_t state)
         ethernetif_input(netif_default);
         sys_check_timeouts();
 
-        if(ms - last_ms0 > 1) {
+        if(ms - last_ms0 > 3) {
             last_ms0 = ms;
     #if TELNET_ENABLE
             if(services.telnet)
-              TCPStreamPoll();
+                TCPStreamPoll();
     #endif
     #if FTP_ENABLE
             if(services.ftp)
@@ -131,14 +139,8 @@ static void enet_poll (sys_state_t state)
     #endif
     #if WEBSOCKET_ENABLE
             if(services.websocket)
-              WsStreamPoll();
+                WsStreamPoll();
     #endif
-        }
-
-        if (ms - last_ms1 > 25)
-        {
-            last_ms1 = ms;
-    //        enet_poll();
         }
     }
 
@@ -215,6 +217,43 @@ static const setting_detail_t ethernet_settings[] = {
     { Setting_WebSocketPort, Group_Networking, "Websocket port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.websocket_port, NULL, NULL }
 };
 
+#ifndef NO_SETTINGS_DESCRIPTIONS
+
+static const setting_descr_t ethernet_settings_descr[] = {
+    { Setting_NetworkServices, "Network services to enable. Consult driver documentation for availability.\\n\\n"
+                               "NOTE: A hard reset of the controller is required after changing network settings."
+    },
+    { Setting_Hostname, "Network hostname.\\n\\n"
+                        "NOTE: A hard reset of the controller is required after changing network settings."
+    },
+    { Setting_IpMode, "IP Mode.\\n\\n"
+                      "NOTE: A hard reset of the controller is required after changing network settings."
+    },
+    { Setting_IpAddress, "Static IP address.\\n\\n"
+                         "NOTE: A hard reset of the controller is required after changing network settings."
+    },
+    { Setting_Gateway, "Static gateway address.\\n\\n"
+                       "NOTE: A hard reset of the controller is required after changing network settings."
+    },
+    { Setting_NetMask, "Static netmask.\\n\\n"
+                       "NOTE: A hard reset of the controller is required after changing network settings."
+    },
+    { Setting_TelnetPort, "(Raw) Telnet port number listening for incoming connections.\\n\\n"
+                          "NOTE: A hard reset of the controller is required after changing network settings."
+    },
+#if HTTP_ENABLE
+    { Setting_HttpPort, "HTTP port number listening for incoming connections.\\n\\n"
+                        "NOTE: A hard reset of the controller is required after changing network settings."
+    },
+#endif
+    { Setting_WebSocketPort, "Websocket port number listening for incoming connections.\\n\\n"
+                             "NOTE: A hard reset of the controller is required after changing network settings.\\n"
+                             "NOTE: WebUI requires this to be HTTP port number + 1."
+    }
+};
+
+#endif
+
 static void ethernet_settings_save (void)
 {
     hal.nvs.memcpy_to_nvs(nvs_address, (uint8_t *)&ethernet, sizeof(network_settings_t), true);
@@ -225,6 +264,10 @@ static setting_details_t details = {
     .n_groups = sizeof(ethernet_groups) / sizeof(setting_group_detail_t),
     .settings = ethernet_settings,
     .n_settings = sizeof(ethernet_settings) / sizeof(setting_detail_t),
+#ifndef NO_SETTINGS_DESCRIPTIONS
+    .descriptions = ethernet_settings_descr,
+    .n_descriptions = sizeof(ethernet_settings_descr) / sizeof(setting_descr_t),
+#endif
     .save = ethernet_settings_save,
     .load = ethernet_settings_load,
     .restore = ethernet_settings_restore

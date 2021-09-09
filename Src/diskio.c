@@ -48,14 +48,14 @@
 static inline
 void SELECT (void)
 {
-    DIGITAL_OUT(SD_CS_PORT, SD_CS_BIT, 0);
+    DIGITAL_OUT(SD_CS_PORT, (1<<SD_CS_PIN), 0);
 }
 
 /* de-asserts the CS pin to the card */
 static inline
 void DESELECT (void)
 {
-    DIGITAL_OUT(SD_CS_PORT, SD_CS_BIT, 1);
+    DIGITAL_OUT(SD_CS_PORT, (1<<SD_CS_PIN), 1);
 }
 
 /*--------------------------------------------------------------------------
@@ -121,6 +121,8 @@ BYTE wait_ready (void)
 void send_initial_clock_train(void)
 {
     unsigned int i = 10;
+
+    spi_set_speed(SPI_BAUDRATEPRESCALER_256);
 
     /* Ensure CS is held high. */
     DESELECT();

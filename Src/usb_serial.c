@@ -63,7 +63,7 @@ static void usbRxCancel (void)
 {
     rxbuf.data[rxbuf.head] = ASCII_CAN;
     rxbuf.tail = rxbuf.head;
-    rxbuf.head = (rxbuf.tail + 1) & (RX_BUFFER_SIZE - 1);
+    rxbuf.head =  BUFNEXT(rxbuf.head, rxbuf);;
 }
 
 //
@@ -124,6 +124,15 @@ static void usbWriteS (const char *s)
             return;
     }
 
+    while(length > txbuf.max_length) {
+        txbuf.length = txbuf.max_length;
+        memcpy(txbuf.s, s, txbuf.max_length);
+        if(!usb_write())
+            return;
+        length -= txbuf.max_length;
+        s += txbuf.max_length;
+    }
+
     memcpy(txbuf.s, s, length);
     txbuf.length += length;
     txbuf.s += length;
@@ -139,13 +148,13 @@ static void usbWriteS (const char *s)
 //
 static int16_t usbGetC (void)
 {
-    uint16_t bptr = rxbuf.tail;
+    uint16_t tail = rxbuf.tail;
 
-    if(bptr == rxbuf.head)
+    if(tail == rxbuf.head)
         return -1; // no data available else EOF
 
-    char data = rxbuf.data[bptr++];             // Get next character, increment tmp pointer
-    rxbuf.tail = bptr & (RX_BUFFER_SIZE - 1);   // and update pointer
+    char data = rxbuf.data[tail];       // Get next character, increment tmp pointer
+    rxbuf.tail = BUFNEXT(tail, rxbuf);  // and update pointer
 
     return (int16_t)data;
 }
@@ -153,6 +162,11 @@ static int16_t usbGetC (void)
 static bool usbSuspendInput (bool suspend)
 {
     return stream_rx_suspend(&rxbuf, suspend);
+}
+
+static bool usbEnqueueRtCommand (char c)
+{
+    return enqueue_realtime_command(c);
 }
 
 static enqueue_realtime_command_ptr usbSetRtHandler (enqueue_realtime_command_ptr handler)
@@ -175,6 +189,7 @@ const io_stream_t *usbInit (void)
         .write = usbWriteS,
         .write_char = usbPutC,
         .write_all = usbWriteS,
+        .enqueue_rt_command = usbEnqueueRtCommand,
         .get_rx_buffer_free = usbRxFree,
         .reset_read_buffer = usbRxFlush,
         .cancel_read_buffer = usbRxCancel,

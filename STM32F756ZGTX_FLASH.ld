@@ -30,19 +30,20 @@ ENTRY(Reset_Handler)
 /* Highest address of the user mode stack */
 _estack = ORIGIN(RAM) + LENGTH(RAM);	/* end of "RAM" Ram type memory */
 
-_Min_Heap_Size = 0x3000;	/* required amount of heap  */
-_Min_Stack_Size = 0x1000;	/* required amount of stack */
+_Min_Heap_Size = 0x20000;	/* required amount of heap  */
+_Min_Stack_Size = 0x3000;	/* required amount of stack */
 
 /* Memories definition */
 MEMORY
 {
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 320K
-  FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 768K
-  FLASH_CONFIG (r)  : ORIGIN = 0x80C0000,  LENGTH = 256K
+  BOOT_FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 32K
+  EEPROM_EMUL(xrw)      : ORIGIN = 0x8008000,   LENGTH = 32K
+  FLASH    (rx)    : ORIGIN = 0x8010000,   LENGTH = 960K
 }
 
-__config_start = ORIGIN(FLASH_CONFIG);
-__config_end = ORIGIN(FLASH_CONFIG) + LENGTH(FLASH_CONFIG);
+__config_start = ORIGIN(EEPROM_EMUL);
+__config_end = ORIGIN(EEPROM_EMUL) + LENGTH(EEPROM_EMUL);
 
 /* Sections */
 SECTIONS
@@ -53,7 +54,7 @@ SECTIONS
     . = ALIGN(4);
     KEEP(*(.isr_vector)) /* Startup code */
     . = ALIGN(4);
-  } >FLASH
+  } >BOOT_FLASH
 
   /* The program code and other data into "FLASH" Rom type memory */
   .text :

@@ -31,6 +31,7 @@
 #include "grbl/limits.h"
 #include "grbl/protocol.h"
 #include "grbl/motor_pins.h"
+#include "grbl/pin_bits_masks.h"
 
 #ifdef I2C_PORT
 #include "i2c.h"
@@ -88,8 +89,16 @@
 #define KEYPAD_STROBE_BIT 0
 #endif
 
+#if !SAFETY_DOOR_ENABLE
+#define SAFETY_DOOR_BIT 0
+#endif
+
 #if !SPINDLE_SYNC_ENABLE
 #define SPINDLE_INDEX_BIT 0
+#endif
+
+#if CONTROL_MASK != (RESET_BIT+FEED_HOLD_BIT+CYCLE_START_BIT+SAFETY_DOOR_BIT)
+#error Interrupt enabled input pins must have unique pin numbers!
 #endif
 
 #define DRIVER_IRQMASK (LIMIT_MASK|CONTROL_MASK|KEYPAD_STROBE_BIT|SPINDLE_INDEX_BIT)
@@ -118,7 +127,7 @@ static input_signal_t inputpin[] = {
 #if SAFETY_DOOR_ENABLE
     { .id = Input_SafetyDoor,     .port = SAFETY_DOOR_PORT,   .pin = SAFETY_DOOR_PIN,     .group = PinGroup_Control },
 #endif
-#if PROBE_PIN
+#ifdef PROBE_PIN
     { .id = Input_Probe,          .port = PROBE_PORT,         .pin = PROBE_PIN,           .group = PinGroup_Probe },
 #endif
 #ifdef KEYPAD_STROBE_PIN
@@ -284,9 +293,11 @@ static const io_stream_t *serial_stream;
 static axes_signals_t next_step_outbits;
 static delay_t delay = { .ms = 1, .callback = NULL }; // NOTE: initial ms set to 1 for "resetting" systick timer on startup
 static debounce_t debounce;
+#ifdef PROBE_PIN
 static probe_state_t probe = {
     .connected = On
 };
+#endif
 
 #include "grbl/stepdir_map.h"
 
@@ -313,7 +324,7 @@ static void enetStreamWriteS (const char *data)
 }
 #endif // ETHERNET_ENABLE
 
-#if !VFD_SPINDLE
+#if !VFD_SPINDLE && defined(SPINDLE_PWM_TIMER_N)
 static bool pwmEnabled = false;
 static spindle_pwm_t spindle_pwm;
 static void spindle_set_speed (uint_fast16_t pwm_value);
@@ -413,6 +424,9 @@ static bool selectStream (const io_stream_t *stream)
         default:
             break;
     }
+
+    if(grbl.on_stream_changed)
+        grbl.on_stream_changed(hal.stream.type);
 
     active_stream = hal.stream.type;
 
@@ -984,6 +998,9 @@ static void spindleSetState (spindle_state_t state, float rpm)
 // Variable spindle control functions
 
 // Sets spindle speed
+#ifdef SPINDLE_PWM_TIMER_N
+
+// Sets spindle speed
 static void spindle_set_speed (uint_fast16_t pwm_value)
 {
     if (pwm_value == spindle_pwm.off_value) {
@@ -991,16 +1008,25 @@ static void spindle_set_speed (uint_fast16_t pwm_value)
         if(settings.spindle.flags.pwm_action == SpindleAction_DisableWithZeroSPeed)
             spindle_off();
         if(spindle_pwm.always_on) {
-            SPINDLE_PWM_TIMER->CCR1 = spindle_pwm.off_value;
+            SPINDLE_PWM_TIMER_CCR = spindle_pwm.off_value;
+#if SPINDLE_PWM_TIMER_N == 1
             SPINDLE_PWM_TIMER->BDTR |= TIM_BDTR_MOE;
+#endif
+            SPINDLE_PWM_TIMER_CCR = pwm_value;
         } else
+#if SPINDLE_PWM_TIMER_N == 1
             SPINDLE_PWM_TIMER->BDTR &= ~TIM_BDTR_MOE; // Set PWM output low
+#else
+            SPINDLE_PWM_TIMER_CCR = 0;
+#endif
     } else {
         if(!pwmEnabled)
             spindle_on();
         pwmEnabled = true;
-        SPINDLE_PWM_TIMER->CCR1 = pwm_value;
+        SPINDLE_PWM_TIMER_CCR = pwm_value;
+#if SPINDLE_PWM_TIMER_N == 1
         SPINDLE_PWM_TIMER->BDTR |= TIM_BDTR_MOE;
+#endif
     }
 }
 
@@ -1040,6 +1066,8 @@ static void spindleSetStateVariable (spindle_state_t state, float rpm)
     spindle_data.rpm_programmed = spindle_data.rpm = rpm;
 #endif
 }
+
+#endif // SPINDLE_PWM_TIMER_N
 
 // Returns spindle state in a spindle_state_t variable
 static spindle_state_t spindleGetState (void)
@@ -1257,15 +1285,24 @@ void settings_changed (settings_t *settings)
 
 #if !VFD_SPINDLE
 
+  #ifdef SPINDLE_PWM_TIMER_N
+
         if(hal.driver_cap.variable_spindle) {
 
             hal.spindle.set_state = spindleSetStateVariable;
 
             SPINDLE_PWM_TIMER->CR1 &= ~TIM_CR1_CEN;
 
-            uint32_t prescaler = settings->spindle.pwm_freq > 4000.0f ? 1 : (settings->spindle.pwm_freq > 200.0f ? 12 : 25);
+            RCC_ClkInitTypeDef clock;
+            uint32_t latency, prescaler = settings->spindle.pwm_freq > 4000.0f ? 1 : (settings->spindle.pwm_freq > 200.0f ? 12 : 25);
 
-            spindle_precompute_pwm_values(&spindle_pwm, SystemCoreClock / prescaler);
+            HAL_RCC_GetClockConfig(&clock, &latency);
+
+#if SPINDLE_PWM_TIMER_N == 1
+            spindle_precompute_pwm_values(&spindle_pwm, (HAL_RCC_GetPCLK2Freq() * (clock.APB2CLKDivider == 0 ? 1 : 2)) / prescaler);
+#else
+            spindle_precompute_pwm_values(&spindle_pwm, (HAL_RCC_GetPCLK1Freq() * (clock.APB1CLKDivider == 0 ? 1 : 2)) / prescaler);
+#endif
 
             TIM_Base_InitTypeDef timerInitStructure = {
                 .Prescaler = prescaler - 1,
@@ -1277,36 +1314,28 @@ void settings_changed (settings_t *settings)
 
             TIM_Base_SetConfig(SPINDLE_PWM_TIMER, &timerInitStructure);
 
-            SPINDLE_PWM_TIMER->CCER &= ~TIM_CCER_CC1E;
-            SPINDLE_PWM_TIMER->CCMR1 &= ~(TIM_CCMR1_OC1M|TIM_CCMR1_CC1S);
-            SPINDLE_PWM_TIMER->CCMR1 |= TIM_CCMR1_OC1M_1|TIM_CCMR1_OC1M_2;
-            SPINDLE_PWM_TIMER->CCR1 = 0;
+            SPINDLE_PWM_TIMER->CCER &= ~SPINDLE_PWM_CCER_EN;
+            SPINDLE_PWM_TIMER_CCMR &= ~SPINDLE_PWM_CCMR_OCM_CLR;
+            SPINDLE_PWM_TIMER_CCMR |= SPINDLE_PWM_CCMR_OCM_SET;
+            SPINDLE_PWM_TIMER_CCR = 0;
+          #if SPINDLE_PWM_TIMER_N == 1
             SPINDLE_PWM_TIMER->BDTR |= TIM_BDTR_OSSR|TIM_BDTR_OSSI;
-#if defined(SPINDLE_PWM_PIN) && SPINDLE_PWM_PIN == 7
+          #endif
             if(settings->spindle.invert.pwm) {
-                SPINDLE_PWM_TIMER->CCER |= TIM_CCER_CC1NP;
-                SPINDLE_PWM_TIMER->CR2 |= TIM_CR2_OIS1N;
+                SPINDLE_PWM_TIMER->CCER |= SPINDLE_PWM_CCER_POL;
+                SPINDLE_PWM_TIMER->CR2 |= SPINDLE_PWM_CR2_OIS;
             } else {
-                SPINDLE_PWM_TIMER->CCER &= ~TIM_CCER_CC1NP;
-                SPINDLE_PWM_TIMER->CR2 &= ~TIM_CR2_OIS1N;
+                SPINDLE_PWM_TIMER->CCER &= ~SPINDLE_PWM_CCER_POL;
+                SPINDLE_PWM_TIMER->CR2 &= ~SPINDLE_PWM_CR2_OIS;
             }
-            SPINDLE_PWM_TIMER->CCER |= TIM_CCER_CC1NE;
-#else
-            if(settings->spindle.invert.pwm) {
-                SPINDLE_PWM_TIMER->CCER |= TIM_CCER_CC1P;
-                SPINDLE_PWM_TIMER->CR2 |= TIM_CR2_OIS1;
-            } else {
-                SPINDLE_PWM_TIMER->CCER &= ~TIM_CCER_CC1P;
-                SPINDLE_PWM_TIMER->CR2 &= ~TIM_CR2_OIS1;
-            }
-            SPINDLE_PWM_TIMER->CCER |= TIM_CCER_CC1E;
-#endif
+            SPINDLE_PWM_TIMER->CCER |= SPINDLE_PWM_CCER_EN;
             SPINDLE_PWM_TIMER->CR1 |= TIM_CR1_CEN;
 
         } else
+  #endif // SPINDLE_PWM_TIMER_N
             hal.spindle.set_state = spindleSetState;
 
-#endif
+#endif // !VFD_SPINDLE
 
 #if SPINDLE_SYNC_ENABLE
 
@@ -1586,6 +1615,15 @@ static void enumeratePins (bool low_level, pin_info_ptr pin_info)
 
         pin_info(&pin);
     };
+
+#ifdef SPINDLE_PWM_TIMER_N
+    pin.pin = SPINDLE_PWM_PIN;
+    pin.function = Output_SpindlePWM;
+    pin.group = PinGroup_SpindlePWM;
+    pin.port = low_level ? (void *)SPINDLE_PWM_PORT : (void *)port2char(SPINDLE_PWM_PORT);
+    pin.description = NULL;
+    pin_info(&pin);
+#endif
 /*
     for(i = 0; i < sizeof(peripin) / sizeof(output_signal_t); i++) {
         pin.pin = peripin[i].pin;
@@ -1668,15 +1706,14 @@ static bool driver_setup (settings_t *settings)
 
   // Spindle init
 
-#if !VFD_SPINDLE && defined(SPINDLE_PWM_PIN)
+#if !VFD_SPINDLE && defined(SPINDLE_PWM_TIMER_N)
 
     if(hal.driver_cap.variable_spindle) {
-        GPIO_Init.Pin = SPINDLE_PWM_BIT;
+        GPIO_Init.Pin = (1<<SPINDLE_PWM_PIN);
         GPIO_Init.Mode = GPIO_MODE_AF_PP;
         GPIO_Init.Pull = GPIO_NOPULL;
-        GPIO_Init.Alternate = GPIO_AF1_TIM1;
+        GPIO_Init.Alternate = SPINDLE_PWM_AF;
         HAL_GPIO_Init(SPINDLE_PWM_PORT, &GPIO_Init);
-        GPIO_Init.Alternate = 0;
     }
 
 #endif
@@ -1693,7 +1730,7 @@ static bool driver_setup (settings_t *settings)
 
 #if SDCARD_ENABLE
 
-    DIGITAL_OUT(SD_CS_PORT, SD_CS_BIT, 1);
+    DIGITAL_OUT(SD_CS_PORT, SD_CS_PIN, 1);
 
     sdcard_init();
 
@@ -1735,7 +1772,11 @@ static bool driver_setup (settings_t *settings)
 
 #endif
 
+#if N_AXIS > 3
+    IOInitDone = settings->version == 20;
+#else
     IOInitDone = settings->version == 19;
+#endif
 
     hal.settings_changed(settings);
     hal.spindle.set_state((spindle_state_t){0}, 0.0f);
@@ -1770,7 +1811,7 @@ bool driver_init (void)
 #endif
 
     hal.info = "STM32F756";
-    hal.driver_version = "210808";
+    hal.driver_version = "210903";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1785,6 +1826,7 @@ bool driver_init (void)
     hal.stepper.enable = stepperEnable;
     hal.stepper.cycles_per_tick = stepperCyclesPerTick;
     hal.stepper.pulse_start = stepperPulseStart;
+    hal.stepper.motor_iterator = motor_iterator;
 #ifdef SQUARING_ENABLED
     hal.stepper.get_auto_squared = getAutoSquaredAxes;
     hal.stepper.disable_motors = StepperDisableMotors;
@@ -1804,12 +1846,14 @@ bool driver_init (void)
 #if !VFD_SPINDLE
     hal.spindle.set_state = spindleSetState;
     hal.spindle.get_state = spindleGetState;
+ #ifdef SPINDLE_PWM_TIMER_N
   #ifdef SPINDLE_PWM_DIRECT
     hal.spindle.get_pwm = spindleGetPWM;
     hal.spindle.update_pwm = spindle_set_speed;
   #else
     hal.spindle.update_rpm = spindleUpdateRPM;
   #endif
+ #endif
   #if PPI_ENABLE
     hal.spindle.pulse_on = spindlePulseOn;
   #endif
@@ -1855,7 +1899,7 @@ bool driver_init (void)
 
 #if !VFD_SPINDLE && !PLASMA_ENABLE
     hal.driver_cap.spindle_dir = On;
-  #ifdef SPINDLE_PWM_PIN
+  #ifdef SPINDLE_PWM_TIMER_N
     hal.driver_cap.variable_spindle = On;
     hal.driver_cap.spindle_pwm_invert = On;
   #endif
@@ -1912,7 +1956,7 @@ bool driver_init (void)
 #endif
 
 #if SPINDLE_HUANYANG > 0
-    huanyang_init(modbus_init(&modbus_stream));
+    huanyang_init(modbus_init(serial2Init(115200), NULL));
 #endif
 
 #if BLUETOOTH_ENABLE

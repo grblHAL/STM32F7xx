@@ -23,12 +23,15 @@
 
 */
 
+#include "driver.h"
+
+#if FLASH_ENABLE
+
 #include <string.h>
 
-#include "main.h"
 #include "grbl/hal.h"
 
-extern uint8_t __config_start;
+extern void *__config_start;
 
 bool memcpy_from_flash (uint8_t *dest)
 {
@@ -36,7 +39,6 @@ bool memcpy_from_flash (uint8_t *dest)
 
     return true;
 }
-
 
 bool memcpy_to_flash (uint8_t *source)
 {
@@ -46,7 +48,7 @@ bool memcpy_to_flash (uint8_t *source)
         static FLASH_EraseInitTypeDef erase = {
             .TypeErase = FLASH_TYPEERASE_SECTORS,
             .NbSectors = 1,
-            .Sector = FLASH_SECTOR_7,
+            .Sector = FLASH_SECTOR_1,
             .VoltageRange = FLASH_VOLTAGE_RANGE_3
         };
 
@@ -69,3 +71,5 @@ bool memcpy_to_flash (uint8_t *source)
 
     return status == HAL_OK;
 }
+
+#endif
