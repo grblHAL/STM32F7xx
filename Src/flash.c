@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2019-2021 Terje Io
+  Copyright (c) 2021 Terje Io
 
   This code reads/writes the whole RAM-based emulated EPROM contents from/to flash
 
@@ -23,32 +23,36 @@
 
 */
 
-#include "driver.h"
-
-#if FLASH_ENABLE
-
 #include <string.h>
 
+#include "main.h"
 #include "grbl/hal.h"
 
-extern void *__config_start;
+extern void *_EEPROM_Emul_Start;
+extern uint8_t _EEPROM_Emul_Sector;
 
 bool memcpy_from_flash (uint8_t *dest)
 {
-    memcpy(dest, &__config_start, hal.nvs.size);
+    static volatile void *addr = &_EEPROM_Emul_Start;
+
+    memcpy(dest, &_EEPROM_Emul_Start, hal.nvs.size);
 
     return true;
 }
 
 bool memcpy_to_flash (uint8_t *source)
 {
-    HAL_StatusTypeDef status = HAL_OK;
+    if (!memcmp(source, &_EEPROM_Emul_Start, hal.nvs.size))
+        return true;
+
+    HAL_StatusTypeDef status;
 
     if((status = HAL_FLASH_Unlock()) == HAL_OK) {
+
         static FLASH_EraseInitTypeDef erase = {
+            .Sector = (uint32_t)&_EEPROM_Emul_Sector,
             .TypeErase = FLASH_TYPEERASE_SECTORS,
             .NbSectors = 1,
-            .Sector = FLASH_SECTOR_1,
             .VoltageRange = FLASH_VOLTAGE_RANGE_3
         };
 
@@ -57,7 +61,7 @@ bool memcpy_to_flash (uint8_t *source)
         status = HAL_FLASHEx_Erase(&erase, &error);
 
         uint16_t *data = (uint16_t *)source;
-        uint32_t address = (uint32_t)&__config_start, remaining = (uint32_t)hal.nvs.size;
+        uint32_t address = (uint32_t)&_EEPROM_Emul_Start, remaining = (uint32_t)hal.nvs.size;
 
         while(remaining && status == HAL_OK) {
             status = HAL_FLASH_Program(FLASH_TYPEPROGRAM_HALFWORD, address, *data++);
@@ -71,5 +75,3 @@ bool memcpy_to_flash (uint8_t *source)
 
     return status == HAL_OK;
 }
-
-#endif

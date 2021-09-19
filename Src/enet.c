@@ -75,7 +75,9 @@ static void link_status_callback (struct netif *netif)
 
     if(isLinkUp != linkUp) {
         linkUp = isLinkUp;
+#if TELNET_ENABLE
         TCPStreamNotifyLinkStatus(linkUp);
+#endif
     }
 }
 
@@ -99,12 +101,14 @@ static void netif_status_callback (struct netif *netif)
             services.ftp = On;
         }
 #endif
+
 #if HTTP_ENABLE
         if(network.services.http && !services.http) {
-            httpd_init();
+            httpd_init(network.http_port == 0 ? 80 : network.http_port);
             services.http = On;
         }
 #endif
+
 #if WEBSOCKET_ENABLE
         if(network.services.websocket && !services.websocket) {
             WsStreamInit();

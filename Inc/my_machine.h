@@ -29,22 +29,25 @@
 // Configuration
 // Uncomment to enable.
 
-//#if !(defined(NUCLEO_F756) || defined(NUCLEO_F446)) // The Nucleo-F411RE board has an off-chip UART to USB interface.
+//#if !(defined(NUCLEO_F756)   // The Nucleo-F756ZG board has an off-chip UART to USB interface.
 //#define USB_SERIAL_CDC       1 // Serial communication via native USB.
 //#endif
-//#define SPINDLE_HUANYANG     1 // Set to 1 or 2 for Huanyang VFD spindle. Requires spindle plugin. !! NOT TESTED !!
-//#define ETHERNET_ENABLE      1 // Ethernet streaming. Requires networking plugin.
-//#define BLUETOOTH_ENABLE   1 // Set to 1 for HC-05 module. Requires Bluetooth plugin.
-//#define SDCARD_ENABLE        1 // Run gcode programs from SD card, requires sdcard plugin.
-//#define KEYPAD_ENABLE        1 // I2C keypad for jogging etc., requires keypad plugin.
+//#define SPINDLE_HUANYANG     1 // Set to 1 or 2 for Huanyang VFD spindle. Uses spindle plugin. !! NOT TESTED !!
+//#define WEBUI_ENABLE         1 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
+//#define ETHERNET_ENABLE      1 // Ethernet streaming. Uses networking plugin.
+//#define BLUETOOTH_ENABLE     1 // Set to 1 for HC-05 module. Uses Bluetooth plugin.
+//#define SDCARD_ENABLE        1 // Run gcode programs from SD card, uses sdcard plugin.
+//#define KEYPAD_ENABLE        1 // I2C keypad for jogging etc., uses keypad plugin.
 //#define ODOMETER_ENABLE      1 // Odometer plugin.
 //#define PPI_ENABLE           1 // Laser PPI plugin. To be completed.
 //#define LASER_COOLANT_ENABLE 1 // Laser coolant plugin. To be completed.
+//#define OPENPNP_ENABLE 1
+//#define FANS_ENABLE 1
 //#define TRINAMIC_ENABLE   2130 // Trinamic TMC2130 stepper driver support. NOTE: work in progress.
 //#define TRINAMIC_ENABLE   5160 // Trinamic TMC5160 stepper driver support. NOTE: work in progress.
 //#define TRINAMIC_I2C         1 // Trinamic I2C - SPI bridge interface.
 //#define TRINAMIC_DEV         1 // Development mode, adds a few M-codes to aid debugging. Do not enable in production code.
-//#define EEPROM_ENABLE        2 // I2C EEPROM support. Set to 1 for 24LC16(2K), 2 for larger sizes. Requires eeprom plugin.
+//#define EEPROM_ENABLE        2 // I2C EEPROM support. Set to 1 for 24LC16 (2K), 3 for 24C32 (4K - 32 byte page) and 2 for other sizes. Uses eeprom plugin.
 //#define EEPROM_IS_FRAM       1 // Uncomment when EEPROM is enabled and chip is FRAM, this to remove write delay.
 /**/
 
@@ -64,14 +67,23 @@
 
 #if ETHERNET_ENABLE > 0
 #define TELNET_ENABLE           1 // Telnet daemon - requires Ethernet streaming enabled.
-#define FTP_ENABLE              1 // Ftp daemon - requires SD card enabled.
 #define WEBSOCKET_ENABLE        1 // Websocket daemon - requires Ethernet streaming enabled.
-#define NETWORK_HOSTNAME        "GRBL"
-#define NETWORK_IPMODE          1 // 0 = static, 1 = DHCP, 2 = AutoIP
-#define NETWORK_IP              "10.0.0.222"
-#define NETWORK_GATEWAY         "10.0.0.138"
-#define NETWORK_MASK            "255.255.255.0"
-#define NETWORK_TELNET_PORT     23
-#define NETWORK_WEBSOCKET_PORT  80
-#define NETWORK_HTTP_PORT       80
+#ifdef SDCARD_ENABLE
+#define FTP_ENABLE              1 // Ftp daemon - requires SD card enabled.
+#define HTTP_ENABLE             1 // http daemon - requires SD card enabled.
+#endif
+// The following symbols have the default values as shown, uncomment and change as needed.
+//#define NETWORK_HOSTNAME        "GRBL"
+//#define NETWORK_IPMODE          1 // 0 = static, 1 = DHCP, 2 = AutoIP
+//#define NETWORK_IP              "192.168.5.1"
+//#define NETWORK_GATEWAY         "192.168.5.1"
+//#define NETWORK_MASK            "255.255.255.0"
+//#define NETWORK_FTP_PORT        21
+//#define NETWORK_TELNET_PORT     23
+//#define NETWORK_HTTP_PORT       80
+#if HTTP_ENABLE
+//#define NETWORK_WEBSOCKET_PORT  81
+#else
+//#define NETWORK_WEBSOCKET_PORT  80
+#endif
 #endif

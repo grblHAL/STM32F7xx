@@ -39,11 +39,11 @@ MEMORY
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 320K
   BOOT_FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 32K
   EEPROM_EMUL(xrw)      : ORIGIN = 0x8008000,   LENGTH = 32K
-  FLASH    (rx)    : ORIGIN = 0x8010000,   LENGTH = 960K
+  FLASH    (rx)    : ORIGIN = 0x8010000,   LENGTH = 1024K - 32K - 32K
 }
 
-__config_start = ORIGIN(EEPROM_EMUL);
-__config_end = ORIGIN(EEPROM_EMUL) + LENGTH(EEPROM_EMUL);
+_EEPROM_Emul_Start = ORIGIN(EEPROM_EMUL);
+_EEPROM_Emul_Sector = 1;
 
 /* Sections */
 SECTIONS
