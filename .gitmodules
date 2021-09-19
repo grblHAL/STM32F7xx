@@ -26,3 +26,6 @@
 [submodule "fans"]
 	path = fans
 	url = https://github.com/grblHAL/Plugin_fans
+[submodule "webui"]
+	path = webui
+	url = https://github.com/grblHAL/Plugin_WebUI
