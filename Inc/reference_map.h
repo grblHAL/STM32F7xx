@@ -118,6 +118,11 @@
 #define FEED_HOLD_PIN           0
 #define CYCLE_START_PORT        GPIOF
 #define CYCLE_START_PIN         4
+#if SAFETY_DOOR_ENABLE
+#define SAFETY_DOOR_PORT        GPIOB
+#define SAFETY_DOOR_PIN         10
+#endif
+
 #define CONTROL_INMODE          GPIO_SINGLE
 
 // Define probe switch input pin.

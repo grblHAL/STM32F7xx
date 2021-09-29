@@ -23,18 +23,17 @@
 
 */
 
-#include <string.h>
+#include "driver.h"
 
-#include "main.h"
-#include "grbl/hal.h"
+#if FLASH_ENABLE
+
+#include <string.h>
 
 extern void *_EEPROM_Emul_Start;
 extern uint8_t _EEPROM_Emul_Sector;
 
 bool memcpy_from_flash (uint8_t *dest)
 {
-    static volatile void *addr = &_EEPROM_Emul_Start;
-
     memcpy(dest, &_EEPROM_Emul_Start, hal.nvs.size);
 
     return true;
@@ -75,3 +74,6 @@ bool memcpy_to_flash (uint8_t *source)
 
     return status == HAL_OK;
 }
+
+#endif
+

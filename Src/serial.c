@@ -198,6 +198,7 @@ const io_stream_t *serialInit (uint32_t baud_rate)
         .connected = true,
         .read = serialGetC,
         .write = serialWriteS,
+        .write_n = serialWrite,
         .write_char = serialPutC,
         .write_all = serialWriteS,
         .enqueue_rt_command = serialEnqueueRtCommand,

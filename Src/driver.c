@@ -1811,7 +1811,7 @@ bool driver_init (void)
 #endif
 
     hal.info = "STM32F756";
-    hal.driver_version = "210903";
+    hal.driver_version = "210925";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -2083,7 +2083,6 @@ void EXTI0_IRQHandler(void)
     if(ifg) {
         __HAL_GPIO_EXTI_CLEAR_IT(ifg);
 #if CONTROL_MASK & (1<<0)
-        hal.control.interrupt_callback(systemGetState());
   #if SAFETY_DOOR_BIT & (1<<0)
         if(hal.driver_cap.software_debounce) {
             debounce.door = On;
@@ -2091,6 +2090,7 @@ void EXTI0_IRQHandler(void)
             DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
         } else
   #endif
+        hal.control.interrupt_callback(systemGetState());
 #elif defined(KEYPAD_ENABLED) && KEYPAD_STROBE_BIT & (1<<0)
         keypad_keyclick_handler(DIGITAL_IN(KEYPAD_PORT, KEYPAD_STROBE_BIT) == 0);
 #elif LIMIT_MASK & (1<<0)

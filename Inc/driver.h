@@ -289,19 +289,6 @@
 #define STEPPERS_ENABLE_PINMODE PINMODE_OUTPUT
 #endif
 
-#ifndef RESET_PORT
-#define RESET_PORT CONTROL_PORT
-#endif
-#ifndef FEED_HOLD_PORT
-#define FEED_HOLD_PORT CONTROL_PORT
-#endif
-#ifndef CYCLE_START_PORT
-#define CYCLE_START_PORT CONTROL_PORT
-#endif
-#if SAFETY_DOOR_ENABLE && !defined(SAFETY_DOOR_PORT)
-#define SAFETY_DOOR_PORT CONTROL_PORT
-#endif
-
 typedef struct {
     pin_function_t id;
     GPIO_TypeDef *port;
