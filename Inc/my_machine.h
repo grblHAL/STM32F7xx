@@ -34,6 +34,7 @@
 //#endif
 //#define SPINDLE_HUANYANG     1 // Set to 1 or 2 for Huanyang VFD spindle. Uses spindle plugin. !! NOT TESTED !!
 //#define WEBUI_ENABLE         1 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
+//#define WEBUI_INFLASH        1 // Store WebUI files in flash instead of on SD card.
 //#define ETHERNET_ENABLE      1 // Ethernet streaming. Uses networking plugin.
 //#define BLUETOOTH_ENABLE     1 // Set to 1 for HC-05 module. Uses Bluetooth plugin.
 //#define SDCARD_ENABLE        1 // Run gcode programs from SD card, uses sdcard plugin.
