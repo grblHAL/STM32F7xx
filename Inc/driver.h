@@ -233,11 +233,15 @@
 #include "spindle/huanyang.h"
 #endif
 
+#if MODBUS_ENABLE
+#include "spindle/modbus.h"
+#endif
+
 #ifndef VFD_SPINDLE
 #define VFD_SPINDLE 0
 #endif
 
-#ifdef MODBUS_ENABLE
+#if MODBUS_ENABLE
 #define SERIAL2_MOD
 #endif
 
@@ -255,7 +259,7 @@
     #define TRINAMIC_MIXED_DRIVERS 1
   #endif
   #if TRINAMIC_ENABLE == 2209
-    #ifdef MODBUS_ENABLE
+    #if MODBUS_ENABLE
       #error "Cannot use TMC2209 drivers with Modbus spindle!"
     #else
       #define SERIAL2_MOD

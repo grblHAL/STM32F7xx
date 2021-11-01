@@ -384,11 +384,6 @@ static bool selectStream (const io_stream_t *stream)
         hal.stream.write_all = hal.stream.write;
 #endif
 
-    hal.stream.set_enqueue_rt_handler(protocol_enqueue_realtime_command);
-
-    if(hal.stream.disable)
-        hal.stream.disable(false);
-
     switch(stream->type) {
 
 #if TELNET_ENABLE
@@ -424,6 +419,11 @@ static bool selectStream (const io_stream_t *stream)
         default:
             break;
     }
+
+    hal.stream.set_enqueue_rt_handler(protocol_enqueue_realtime_command);
+
+    if(hal.stream.disable_rx)
+        hal.stream.disable_rx(false);
 
     if(grbl.on_stream_changed)
         grbl.on_stream_changed(hal.stream.type);
@@ -1811,7 +1811,7 @@ bool driver_init (void)
 #endif
 
     hal.info = "STM32F756";
-    hal.driver_version = "210930";
+    hal.driver_version = "211026";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1955,8 +1955,12 @@ bool driver_init (void)
     enet_init();
 #endif
 
-#if SPINDLE_HUANYANG > 0
-    huanyang_init(modbus_init(serial2Init(115200), NULL));
+#if MODBUS_ENABLE
+    modbus_init(serial2Init(115200), NULL);
+#endif
+
+#if SPINDLE_HUANYANG
+    huanyang_init();
 #endif
 
 #if BLUETOOTH_ENABLE

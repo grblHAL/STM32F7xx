@@ -33,6 +33,7 @@
 //#define USB_SERIAL_CDC       1 // Serial communication via native USB.
 //#endif
 //#define SPINDLE_HUANYANG     1 // Set to 1 or 2 for Huanyang VFD spindle. Uses spindle plugin. !! NOT TESTED !!
+//#define MODBUS_ENABLE        1 // Set to 1 for auto direction, 2 for direction signal on auxillary output pin.
 //#define WEBUI_ENABLE         1 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
 //#define WEBUI_INFLASH        1 // Store WebUI files in flash instead of on SD card.
 //#define ETHERNET_ENABLE      1 // Ethernet streaming. Uses networking plugin.
