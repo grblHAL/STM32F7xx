@@ -39,7 +39,7 @@ static stream_tx_buffer_t txbuf2 = {0};
 static enqueue_realtime_command_ptr enqueue_realtime_command2 = stream_buffer_all;
 #endif
 
-#if defined(NUCLEO_F756)
+#if IS_NUCLEO_DEVKIT
   #define USART USART3
   #define USART_IRQHandler USART3_IRQHandler
 #else
@@ -211,7 +211,7 @@ const io_stream_t *serialInit (uint32_t baud_rate)
         .set_enqueue_rt_handler = serialSetRtHandler
     };
 
-#if defined(NUCLEO_F756)
+#if IS_NUCLEO_DEVKIT
 
     __HAL_RCC_USART3_CLK_ENABLE();
     __HAL_RCC_GPIOD_CLK_ENABLE();
@@ -229,6 +229,23 @@ const io_stream_t *serialInit (uint32_t baud_rate)
 
     HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(USART3_IRQn);
+
+    static const periph_pin_t tx = {
+        .function = Output_TX,
+        .group = PinGroup_UART,
+        .port  = GPIOD,
+        .pin   = 8,
+        .mode  = { .mask = PINMODE_OUTPUT },
+        .description = "Primary UART"
+    };
+    static const periph_pin_t rx = {
+        .function = Input_RX,
+        .group = PinGroup_UART,
+        .port = GPIOD,
+        .pin = 9,
+        .mode = { .mask = PINMODE_NONE },
+        .description = "Primary UART"
+    };
 
 #else
 
@@ -248,7 +265,28 @@ const io_stream_t *serialInit (uint32_t baud_rate)
     HAL_NVIC_SetPriority(USART1_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(USART1_IRQn);
 
+    static const periph_pin_t tx = {
+        .function = Output_TX,
+        .group = PinGroup_UART,
+        .port = GPIOA,
+        .pin = 9,
+        .mode = { .mask = PINMODE_OUTPUT },
+        .description = "Primary UART"
+    };
+
+    static const periph_pin_t rx = {
+        .function = Input_RX,
+        .group = PinGroup_UART,
+        .port = GPIOA,
+        .pin = 10,
+        .mode = { .mask = PINMODE_NONE },
+        .description = "Primary UART"
+    };
+
 #endif
+
+    hal.periph_port.register_pin(&rx);
+    hal.periph_port.register_pin(&tx);
 
     return &stream;
 }
@@ -280,7 +318,7 @@ void USART_IRQHandler (void)
 }
 
 #ifdef SERIAL2_MOD
-#if defined(NUCLEO_F756)
+#if IS_NUCLEO_DEVKIT
 #define UART2 USART6
 #define UART2_IRQHandler USART6_IRQHandler
 #else
@@ -467,6 +505,7 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
 {
     static const io_stream_t stream = {
         .type = StreamType_Serial,
+        .instance = 1,
         .connected = true,
         .read = serial2GetC,
         .write = serial2WriteS,
@@ -486,7 +525,7 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
         .set_enqueue_rt_handler = serial2SetRtHandler
     };
 
-#if defined(NUCLEO_F756) || defined(NUCLEO_F446)
+#if IS_NUCLEO_DEVKIT
 
     __HAL_RCC_USART6_CLK_ENABLE();
     __HAL_RCC_GPIOE_CLK_ENABLE();
@@ -504,6 +543,24 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
 
     HAL_NVIC_SetPriority(USART6_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(USART6_IRQn);
+
+    static const periph_pin_t tx = {
+        .function = Output_TX,
+        .group = PinGroup_UART2,
+        .port = GPIOC,
+        .pin = 6,
+        .mode = { .mask = PINMODE_OUTPUT },
+        .description = "Secondary UART"
+    };
+
+    static const periph_pin_t rx = {
+        .function = Input_RX,
+        .group = PinGroup_UART2,
+        .port = GPIOC,
+        .pin = 7,
+        .mode = { .mask = PINMODE_NONE },
+        .description = "Secondary UART"
+    };
 
 #else
 
@@ -523,11 +580,28 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
     HAL_NVIC_SetPriority(USART2_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(USART2_IRQn);
 
+    static const periph_pin_t tx = {
+        .function = Output_TX,
+        .group = PinGroup_UART2,
+        .port = GPIOA,
+        .pin = 2,
+        .mode = { .mask = PINMODE_OUTPUT },
+        .description = "Secondary UART"
+    };
+
+    static const periph_pin_t rx = {
+        .function = Input_RX,
+        .group = PinGroup_UART2,
+        .port = GPIOA,
+        .pin = 3,
+        .mode = { .mask = PINMODE_NONE },
+        .description = "Secondary UART"
+    };
+
 #endif
 
-#if MODBUS_ENABLE
-//  UART2->IE = EUSCI_A_IE_RXIE;
-#endif
+    hal.periph_port.register_pin(&rx);
+    hal.periph_port.register_pin(&tx);
 
     return &stream;
 }

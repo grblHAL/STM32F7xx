@@ -23,6 +23,7 @@
 
 #include <math.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "main.h"
 #include "driver.h"
@@ -119,6 +120,8 @@ typedef union {
                 unused :6;
     };
 } debounce_t;
+
+static periph_signal_t *periph_pins = NULL;
 
 static input_signal_t inputpin[] = {
     { .id = Input_Reset,          .port = RESET_PORT,         .pin = RESET_PIN,           .group = PinGroup_Control },
@@ -1616,24 +1619,53 @@ static void enumeratePins (bool low_level, pin_info_ptr pin_info)
         pin_info(&pin);
     };
 
-#ifdef SPINDLE_PWM_TIMER_N
-    pin.pin = SPINDLE_PWM_PIN;
-    pin.function = Output_SpindlePWM;
-    pin.group = PinGroup_SpindlePWM;
-    pin.port = low_level ? (void *)SPINDLE_PWM_PORT : (void *)port2char(SPINDLE_PWM_PORT);
-    pin.description = NULL;
-    pin_info(&pin);
-#endif
-/*
-    for(i = 0; i < sizeof(peripin) / sizeof(output_signal_t); i++) {
-        pin.pin = peripin[i].pin;
-        pin.function = peripin[i].id;
-        pin.mode.output = PIN_ISOUTPUT(pin.function);
-        pin.group = peripin[i].group;
-        pin.port = low_level ? (void *)peripin[i].port : (void *)port2char(peripin[i].port);
+    periph_signal_t *ppin = periph_pins;
+
+    if(ppin) do {
+        pin.pin = ppin->pin.pin;
+        pin.function = ppin->pin.function;
+        pin.group = ppin->pin.group;
+        pin.port = low_level ? ppin->pin.port : (void *)port2char(ppin->pin.port);
+        pin.mode = ppin->pin.mode;
+        pin.description = ppin->pin.description;
 
         pin_info(&pin);
-    }; */
+
+        ppin = ppin->next;
+    } while(ppin);
+}
+
+void registerPeriphPin (const periph_pin_t *pin)
+{
+    periph_signal_t *add_pin = malloc(sizeof(periph_signal_t));
+
+    if(!add_pin)
+        return;
+
+    memcpy(&add_pin->pin, pin, sizeof(periph_pin_t));
+    add_pin->next = NULL;
+
+    if(periph_pins == NULL) {
+        periph_pins = add_pin;
+    } else {
+        periph_signal_t *last = periph_pins;
+        while(last->next)
+            last = last->next;
+        last->next = add_pin;
+    }
+}
+
+void setPeriphPinDescription (const pin_function_t function, const pin_group_t group, const char *description)
+{
+    periph_signal_t *ppin = periph_pins;
+
+    if(ppin) do {
+        if(ppin->pin.function == function && ppin->pin.group == group) {
+            ppin->pin.description = description;
+            ppin = NULL;
+        } else
+            ppin = ppin->next;
+    } while(ppin);
 }
 
 // Initializes MCU peripherals for Grbl use
@@ -1716,6 +1748,15 @@ static bool driver_setup (settings_t *settings)
         HAL_GPIO_Init(SPINDLE_PWM_PORT, &GPIO_Init);
     }
 
+    static const periph_pin_t pwm = {
+        .function = Output_SpindlePWM,
+        .group = PinGroup_SpindlePWM,
+        .port = SPINDLE_PWM_PORT,
+        .pin = SPINDLE_PWM_PIN,
+        .mode = { .mask = PINMODE_OUTPUT }
+    };
+
+    hal.periph_port.register_pin(&pwm);
 #endif
 
  // Coolant init
@@ -1806,12 +1847,8 @@ bool driver_init (void)
     __HAL_RCC_GPIOF_CLK_ENABLE();
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
-#ifdef I2C_PORT
-    i2c_init();
-#endif
-
     hal.info = "STM32F756";
-    hal.driver_version = "211026";
+    hal.driver_version = "211108";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1868,6 +1905,8 @@ bool driver_init (void)
     hal.set_value_atomic = valueSetAtomic;
     hal.get_elapsed_ticks = getElapsedTicks;
     hal.enumerate_pins = enumeratePins;
+    hal.periph_port.register_pin = registerPeriphPin;
+    hal.periph_port.set_pin_description = setPeriphPinDescription;
 
 #if USB_SERIAL_CDC
     serial_stream = usbInit();
@@ -1877,6 +1916,10 @@ bool driver_init (void)
 
     hal.stream_select = selectStream;
     hal.stream_select(serial_stream);
+
+#ifdef I2C_PORT
+    i2c_init();
+#endif
 
 #if EEPROM_ENABLE
     i2c_eeprom_init();

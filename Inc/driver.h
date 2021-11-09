@@ -85,6 +85,14 @@
 #define GPIO_MAP     14
 #define GPIO_SINGLE  15
 
+#ifndef IS_NUCLEO_DEVKIT
+#if defined(NUCLEO_F756)
+#define IS_NUCLEO_DEVKIT 1
+#else
+#define IS_NUCLEO_DEVKIT 0
+#endif
+#endif
+
 #if defined(BOARD_PROTONEER_3XX)
   #include "protoneer_3.xx_map.h"
 #elif defined(BOARD_GENERIC_UNO)
