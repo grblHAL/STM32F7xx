@@ -38,7 +38,8 @@
 //#if !IS_NUCLEO_DEVKIT   // The Nucleo-F756ZG board has an off-chip UART to USB interface.
 //#define USB_SERIAL_CDC       1 // Serial communication via native USB.
 //#endif
-//#define SPINDLE_HUANYANG     1 // Set to 1 or 2 for Huanyang VFD spindle. Uses spindle plugin. !! NOT TESTED !!
+//#define HUANYANG_ENABLE      1 // Set to 1 or 2 for Huanyang VFD spindle.
+//#define DUAL_SPINDLE         1 // Uncomment for switching between VFD spindle and PWM output with $32
 //#define MODBUS_ENABLE        1 // Set to 1 for auto direction, 2 for direction signal on auxillary output pin.
 //#define WEBUI_ENABLE         1 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
 //#define WEBUI_INFLASH        1 // Store WebUI files in flash instead of on SD card.
@@ -77,7 +78,7 @@
 #define TELNET_ENABLE           1 // Telnet daemon - requires Ethernet streaming enabled.
 #define WEBSOCKET_ENABLE        1 // Websocket daemon - requires Ethernet streaming enabled.
 #ifdef SDCARD_ENABLE
-//#define FTP_ENABLE              1 // Ftp daemon - requires SD card enabled.
+#define FTP_ENABLE              1 // Ftp daemon - requires SD card enabled.
 //#define HTTP_ENABLE             1 // http daemon - requires SD card enabled.
 #endif
 // The following symbols have the default values as shown, uncomment and change as needed.
