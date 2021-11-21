@@ -254,7 +254,7 @@ static output_signal_t outputpin[] = {
     { .id = Output_StepperEnableC,  .port = C_ENABLE_PORT,          .pin = C_ENABLE_PIN,            .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
 #endif
 #endif
-#if VFD_SPINDLE != 1
+#if SPINDLE != 1
 #ifdef SPINDLE_ENABLE_PIN
     { .id = Output_SpindleOn,       .port = SPINDLE_ENABLE_PORT,    .pin = SPINDLE_ENABLE_PIN,      .group = PinGroup_SpindleControl },
 #endif
@@ -276,7 +276,10 @@ static output_signal_t outputpin[] = {
     { .id = Output_Aux1,            .port = AUXOUTPUT1_PORT,        .pin = AUXOUTPUT1_PIN,          .group = PinGroup_AuxOutput },
 #endif
 #ifdef AUXOUTPUT2_PORT
-    { .id = Output_Aux2,            .port = AUXOUTPUT2_PORT,        .pin = AUXOUTPUT2_PIN,          .group = PinGroup_AuxOutput }
+    { .id = Output_Aux2,            .port = AUXOUTPUT2_PORT,        .pin = AUXOUTPUT2_PIN,          .group = PinGroup_AuxOutput },
+#endif
+#ifdef AUXOUTPUT3_PORT
+    { .id = Output_Aux3,            .port = AUXOUTPUT3_PORT,        .pin = AUXOUTPUT3_PIN,          .group = PinGroup_AuxOutput }
 #endif
 };
 /*
@@ -327,7 +330,7 @@ static void enetStreamWriteS (const char *data)
 }
 #endif // ETHERNET_ENABLE
 
-#if VFD_SPINDLE != 1 && defined(SPINDLE_PWM_TIMER_N)
+#if SPINDLE != 1 && defined(SPINDLE_PWM_TIMER_N)
 static bool pwmEnabled = false;
 static spindle_pwm_t spindle_pwm;
 static void spindle_set_speed (uint_fast16_t pwm_value);
@@ -533,25 +536,6 @@ inline static __attribute__((always_inline)) void stepperSetStepOutputs (axes_si
 #endif
 }
 
-static axes_signals_t getAutoSquaredAxes (void)
-{
-    axes_signals_t ganged = {0};
-
-    #if X_AUTO_SQUARE
-        ganged.x = On;
-    #endif
-
-    #if Y_AUTO_SQUARE
-        ganged.y = On;
-    #endif
-
-    #if Z_AUTO_SQUARE
-        ganged.z = On;
-    #endif
-
-    return ganged;
-}
-
 // Enable/disable motors for auto squaring of ganged axes
 static void StepperDisableMotors (axes_signals_t axes, squaring_mode_t mode)
 {
@@ -588,6 +572,39 @@ inline static __attribute__((always_inline)) void stepperSetStepOutputs (axes_si
 
 #endif // SQUARING_ENABLED
 
+#ifdef GANGING_ENABLED
+
+static axes_signals_t getGangedAxes (bool auto_squared)
+{
+    axes_signals_t ganged = {0};
+
+    if(auto_squared) {
+        #if X_AUTO_SQUARE
+            ganged.x = On;
+        #endif
+        #if Y_AUTO_SQUARE
+            ganged.y = On;
+        #endif
+        #if Z_AUTO_SQUARE
+            ganged.z = On;
+        #endif
+    } else {
+        #if X_GANGED
+            ganged.x = On;
+        #endif
+        #if Y_GANGED
+            ganged.y = On;
+        #endif
+        #if Z_GANGED
+            ganged.z = On;
+        #endif
+    }
+
+    return ganged;
+}
+
+#endif
+
 // Set stepper direction output pins
 // NOTE: see note for stepperSetStepOutputs()
 inline static __attribute__((always_inline)) void stepperSetDirOutputs (axes_signals_t dir_outbits)
@@ -597,6 +614,8 @@ inline static __attribute__((always_inline)) void stepperSetDirOutputs (axes_sig
     DIGITAL_OUT(X_DIRECTION_PORT, X_DIRECTION_BIT, dir_outbits.x);
     DIGITAL_OUT(Y_DIRECTION_PORT, Y_DIRECTION_BIT, dir_outbits.y);
     DIGITAL_OUT(Y_DIRECTION_PORT, Z_DIRECTION_BIT, dir_outbits.z);
+ #ifdef GANGING_ENABLED
+    dir_outbits.mask ^= settings.steppers.ganged_dir_invert.mask;
   #ifdef X2_DIRECTION_PIN
     DIGITAL_OUT(X2_DIRECTION_PORT, X2_DIRECTION_BIT, dir_outbits.x);
   #endif
@@ -606,6 +625,7 @@ inline static __attribute__((always_inline)) void stepperSetDirOutputs (axes_sig
   #ifdef Y2_DIRECTION_PIN
     DIGITAL_OUT(Y2_DIRECTION_PORT, Y2_DIRECTION_BIT, dir_outbits.y);
   #endif
+ #endif
   #ifdef A_AXIS
     DIGITAL_OUT(A_DIRECTION_PORT, A_DIRECTION_BIT, dir_outbits.a);
   #endif
@@ -617,21 +637,22 @@ inline static __attribute__((always_inline)) void stepperSetDirOutputs (axes_sig
   #endif
 #elif DIRECTION_OUTMODE == GPIO_MAP
     DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | dir_outmap[dir_outbits.value];
-  #if N_GANGED
-   #ifdef X2_DIRECTION_PIN
-    DIGITAL_OUT(X2_DIRECTION_PORT->ODR, X2_DIRECTION_BIT, dir_outbits.x ^ settings.steppers.dir_invert.x);
-   #endif
-   #ifdef Y2_DIRECTION_PIN
-    DIGITAL_OUT(Y2_DIRECTION_PORT->ODR, Y2_DIRECTION_BIT, dir_outbits.y ^ settings.steppers.dir_invert.y);
-   #endif
-   #ifdef Z2_DIRECTION_PIN
-    DIGITAL_OUT(Z2_DIRECTION_PORT->ODR, Z2_DIRECTION_BIT, dir_outbits.z ^ settings.steppers.dir_invert.z);
-   #endif
+ #ifdef GANGING_ENABLED
+  #ifdef X2_DIRECTION_PIN
+    DIGITAL_OUT(X2_DIRECTION_PORT, X2_DIRECTION_PIN, (dir_outbits.x ^ settings.steppers.dir_invert.x) ^ settings.steppers.ganged_dir_invert.mask.x;
+  #endif
+  #ifdef Y2_DIRECTION_PIN
+      DIGITAL_OUT(Y2_DIRECTION_PORT, Y2_DIRECTION_PIN, (dir_outbits.y ^ settings.steppers.dir_invert.y) ^ settings.steppers.ganged_dir_invert.mask.y);
+  #endif
+  #ifdef Z2_DIRECTION_PIN
+      DIGITAL_OUT(Z2_DIRECTION_PORT, Z2_DIRECTION_PIN, (dir_outbits.z ^ settings.steppers.dir_invert.z) ^ settings.steppers.ganged_dir_invert.mask.z;
+  #endif
  #endif
 #else
-  #if N_GANGED
+  #ifdef GANGING_ENABLED
     dir_outbits.mask ^= settings.steppers.dir_invert.mask;
     DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | (dir_outbits.mask << DIRECTION_OUTMODE);
+    dir_outbits.mask ^= settings.steppers.ganged_dir_invert.mask;
    #ifdef X2_DIRECTION_PIN
     DIGITAL_OUT(X2_DIRECTION_PORT->ODR, X2_DIRECTION_BIT, dir_outbits.x);
    #endif
@@ -918,7 +939,7 @@ static control_signals_t systemGetState (void)
   #endif
 #else
     signals.value = (uint8_t)((CONTROL_PORT->IDR & CONTROL_MASK) >> CONTROL_INMODE);
-  #ifndef ENABLE_SAFETY_DOOR_INPUT_PIN
+  #ifndef SAFETY_DOOR_PIN
     signals.safety_door_ajar = settings.control_invert.safety_door_ajar;
   #endif
   #if ESTOP_ENABLE
@@ -958,7 +979,7 @@ probe_state_t probeGetState (void)
 
 #endif
 
-#if VFD_SPINDLE != 1
+#if SPINDLE != 1
 
 // Static spindle (off, on cw & on ccw)
 
@@ -1192,7 +1213,7 @@ static void spindleDataReset (void)
 
 // end spindle code
 
-#endif // VFD_SPINDLE != 1
+#endif // SPINDLE != 1
 
 // Start/stop coolant (and mist if enabled)
 static void coolantSetState (coolant_state_t mode)
@@ -1286,7 +1307,7 @@ void settings_changed (settings_t *settings)
         hal.stepper.disable_motors((axes_signals_t){0}, SquaringMode_Both);
 #endif
 
-#if VFD_SPINDLE != 1
+#if SPINDLE != 1
 
   #ifdef SPINDLE_PWM_TIMER_N
 
@@ -1338,7 +1359,7 @@ void settings_changed (settings_t *settings)
   #endif // SPINDLE_PWM_TIMER_N
             hal.spindle.set_state = spindleSetState;
 
-#endif // VFD_SPINDLE != 1
+#endif // SPINDLE != 1
 
 #if SPINDLE_SYNC_ENABLE
 
@@ -1738,7 +1759,7 @@ static bool driver_setup (settings_t *settings)
 
   // Spindle init
 
-#if VFD_SPINDLE != 1 && defined(SPINDLE_PWM_TIMER_N)
+#if SPINDLE != 1 && defined(SPINDLE_PWM_TIMER_N)
 
     if(hal.driver_cap.variable_spindle) {
         GPIO_Init.Pin = (1<<SPINDLE_PWM_PIN);
@@ -1813,11 +1834,7 @@ static bool driver_setup (settings_t *settings)
 
 #endif
 
-#if N_AXIS > 3
-    IOInitDone = settings->version == 20;
-#else
-    IOInitDone = settings->version == 19;
-#endif
+    IOInitDone = settings->version == 21;
 
     hal.settings_changed(settings);
     hal.spindle.set_state((spindle_state_t){0}, 0.0f);
@@ -1848,7 +1865,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "211113";
+    hal.driver_version = "211121";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1864,8 +1881,10 @@ bool driver_init (void)
     hal.stepper.cycles_per_tick = stepperCyclesPerTick;
     hal.stepper.pulse_start = stepperPulseStart;
     hal.stepper.motor_iterator = motor_iterator;
+#ifdef GANGING_ENABLED
+    hal.stepper.get_ganged = getGangedAxes;
+#endif
 #ifdef SQUARING_ENABLED
-    hal.stepper.get_auto_squared = getAutoSquaredAxes;
     hal.stepper.disable_motors = StepperDisableMotors;
 #endif
 
@@ -1880,7 +1899,7 @@ bool driver_init (void)
     hal.probe.configure = probeConfigure;
 #endif
 
-#if VFD_SPINDLE != 1
+#if SPINDLE != 1
     hal.spindle.set_state = spindleSetState;
     hal.spindle.get_state = spindleGetState;
  #ifdef SPINDLE_PWM_TIMER_N
@@ -1940,7 +1959,7 @@ bool driver_init (void)
     hal.signals_cap.safety_door_ajar = On;
 #endif
 
-#if VFD_SPINDLE != 1 && !PLASMA_ENABLE
+#if SPINDLE != 1 && !PLASMA_ENABLE
     hal.driver_cap.spindle_dir = On;
   #ifdef SPINDLE_PWM_TIMER_N
     hal.driver_cap.variable_spindle = On;
@@ -2020,7 +2039,7 @@ bool driver_init (void)
 
     // No need to move version check before init.
     // Compiler will fail any signature mismatch for existing entries.
-    return hal.version == 8;
+    return hal.version == 9;
 }
 
 /* interrupt handlers */

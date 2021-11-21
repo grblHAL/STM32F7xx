@@ -225,35 +225,19 @@ static const setting_detail_t ethernet_settings[] = {
 #ifndef NO_SETTINGS_DESCRIPTIONS
 
 static const setting_descr_t ethernet_settings_descr[] = {
-    { Setting_NetworkServices, "Network services to enable. Consult driver documentation for availability.\\n\\n"
-                               "NOTE: A hard reset of the controller is required after changing network settings."
-    },
-    { Setting_Hostname, "Network hostname.\\n\\n"
-                        "NOTE: A hard reset of the controller is required after changing network settings."
-    },
-    { Setting_IpMode, "IP Mode.\\n\\n"
-                      "NOTE: A hard reset of the controller is required after changing network settings."
-    },
-    { Setting_IpAddress, "Static IP address.\\n\\n"
-                         "NOTE: A hard reset of the controller is required after changing network settings."
-    },
-    { Setting_Gateway, "Static gateway address.\\n\\n"
-                       "NOTE: A hard reset of the controller is required after changing network settings."
-    },
-    { Setting_NetMask, "Static netmask.\\n\\n"
-                       "NOTE: A hard reset of the controller is required after changing network settings."
-    },
-    { Setting_TelnetPort, "(Raw) Telnet port number listening for incoming connections.\\n\\n"
-                          "NOTE: A hard reset of the controller is required after changing network settings."
+    { Setting_NetworkServices, "Network services to enable. Consult driver documentation for availability." SETTINGS_HARD_RESET_REQUIRED },
+    { Setting_Hostname, "Network hostname." SETTINGS_HARD_RESET_REQUIRED },
+    { Setting_IpMode, "IP Mode." SETTINGS_HARD_RESET_REQUIRED },
+    { Setting_IpAddress, "Static IP address." SETTINGS_HARD_RESET_REQUIRED },
+    { Setting_Gateway, "Static gateway address." SETTINGS_HARD_RESET_REQUIRED },
+    { Setting_NetMask, "Static netmask." SETTINGS_HARD_RESET_REQUIRED },
+    { Setting_TelnetPort, "(Raw) Telnet port number listening for incoming connections." SETTINGS_HARD_RESET_REQUIRED
     },
 #if HTTP_ENABLE
-    { Setting_HttpPort, "HTTP port number listening for incoming connections.\\n\\n"
-                        "NOTE: A hard reset of the controller is required after changing network settings."
-    },
+    { Setting_HttpPort, "HTTP port number listening for incoming connections." SETTINGS_HARD_RESET_REQUIRED },
 #endif
-    { Setting_WebSocketPort, "Websocket port number listening for incoming connections.\\n\\n"
-                             "NOTE: A hard reset of the controller is required after changing network settings.\\n"
-                             "NOTE: WebUI requires this to be HTTP port number + 1."
+    { Setting_WebSocketPort, "Websocket port number listening for incoming connections." SETTINGS_HARD_RESET_REQUIRED
+                             "\\nNOTE: WebUI requires this to be HTTP port number + 1."
     }
 };
 

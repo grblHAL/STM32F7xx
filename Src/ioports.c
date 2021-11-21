@@ -118,7 +118,7 @@ static status_code_t aux_set_invert_out (setting_id_t id, uint_fast16_t value)
         do {
             port--;
             if(((settings.ioport.invert_out.mask >> port) & 0x01) != ((invert.mask >> port) & 0x01))
-                DIGITAL_OUT(aux_out[port].port, aux_out[port].pin, !DIGITAL_IN(aux_out[port].port, aux_out[port].pin));
+                DIGITAL_OUT(aux_out[port].port, aux_out[port].bit, !DIGITAL_IN(aux_out[port].port, aux_out[port].bit));
         } while(port);
 
         settings.ioport.invert_out.mask = invert.mask;
@@ -139,7 +139,7 @@ static void aux_settings_load (void)
     uint_fast8_t idx = n_out;
     if(n_out) do {
         idx--;
-        DIGITAL_OUT(aux_out[idx].port, aux_out[idx].pin, (settings.ioport.invert_out.mask >> idx) & 0x01);
+        DIGITAL_OUT(aux_out[idx].port, aux_out[idx].bit, (settings.ioport.invert_out.mask >> idx) & 0x01);
     } while(idx);
 }
 
@@ -166,7 +166,7 @@ static void digital_out (uint8_t port, bool on)
     if(port < n_out) {
         if(out_map)
             port = out_map[port];
-        DIGITAL_OUT(aux_out[port].port, aux_out[port].pin, ((settings.ioport.invert_out.mask >> port) & 0x01) ? !on : on);
+        DIGITAL_OUT(aux_out[port].port, aux_out[port].bit, ((settings.ioport.invert_out.mask >> port) & 0x01) ? !on : on);
     }
 }
 
@@ -269,6 +269,21 @@ inline static __attribute__((always_inline)) uint8_t in_map_rev (uint8_t port)
     return port;
 }
 
+inline static __attribute__((always_inline)) uint8_t out_map_rev (uint8_t port)
+{
+    if(out_map) {
+        uint_fast8_t idx = n_out;
+        do {
+            if(out_map[--idx] == port) {
+                port = idx;
+                break;
+            }
+        } while(idx);
+    }
+
+    return port;
+}
+
 void ioports_event (uint32_t bit)
 {
     spin_lock = true;
@@ -278,7 +293,7 @@ void ioports_event (uint32_t bit)
     do {
         idx--;
         if((aux_in[idx].bit & bit) && aux_in[idx].interrupt_callback)
-            aux_in[idx].interrupt_callback(in_map_rev(idx), DIGITAL_IN(aux_in[idx].port, aux_in[idx].pin));
+            aux_in[idx].interrupt_callback(in_map_rev(idx), DIGITAL_IN(aux_in[idx].port, aux_in[idx].bit));
     } while(idx);
 
     spin_lock = false;
@@ -377,39 +392,41 @@ static bool claim (io_port_type_t type, io_port_direction_t dir, uint8_t *port, 
 
     if(type == Port_Digital) {
 
-        if((ok = dir == Port_Input && in_map && *port < hal.port.num_digital_in)) {
+        if(dir == Port_Input) {
 
-            uint8_t i, tmp = in_map[*port];
+            if((ok = in_map && *port < n_in && !aux_in[*port].cap.claimed)) {
 
-            hal.port.num_digital_in--;
+                uint8_t i;
 
-            for(i = *port; i < hal.port.num_digital_in ; i++) {
-                in_map[i] = in_map[i + 1];
-                aux_in[in_map[i]].description = get_pnum(i);
+                hal.port.num_digital_in--;
+
+                for(i = in_map_rev(*port); i < hal.port.num_digital_in ; i++) {
+                    in_map[i] = in_map[i + 1];
+                    aux_in[in_map[i]].description = get_pnum(i);
+                }
+
+                aux_in[*port].cap.claimed = On;
+                aux_in[*port].description = description;
+
+                in_map[hal.port.num_digital_in] = *port;
+                *port = hal.port.num_digital_in;
             }
 
-            aux_in[tmp].cap.claimed = On;
-            aux_in[tmp].description = description;
+        } else if((ok = out_map && *port < n_out && !aux_out[*port].mode.claimed)) {
 
-            in_map[hal.port.num_digital_in] = tmp;
-            *port = hal.port.num_digital_in;
-        }
-
-        if((ok = dir == Port_Output && out_map && *port < hal.port.num_digital_out)) {
-
-            uint8_t i, tmp = out_map[*port];
+            uint8_t i;
 
             hal.port.num_digital_out--;
 
-            for(i = *port; i < hal.port.num_digital_out ; i++) {
+            for(i = out_map_rev(*port); i < hal.port.num_digital_out; i++) {
                 out_map[i] = out_map[i + 1];
                 aux_out[out_map[i]].description = get_pnum(i);
             }
 
-            aux_out[tmp].mode.claimed = On;
-            aux_out[tmp].description = description;
+            aux_out[*port].mode.claimed = On;
+            aux_out[*port].description = description;
 
-            out_map[hal.port.num_digital_out] = tmp;
+            out_map[hal.port.num_digital_out] = *port;
             *port = hal.port.num_digital_out;
         }
     }
