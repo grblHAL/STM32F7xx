@@ -91,21 +91,21 @@ static void netif_status_callback (struct netif *netif)
 #if TELNET_ENABLE
         if(network.services.telnet && !services.telnet) {
             TCPStreamInit();
-            TCPStreamListen(network.telnet_port == 0 ? 23 : network.telnet_port);
+            TCPStreamListen(network.telnet_port == 0 ? NETWORK_TELNET_PORT : network.telnet_port);
             services.telnet = On;
         }
 #endif
 
 #if FTP_ENABLE
         if(network.services.ftp && !services.ftp) {
-            ftpd_init();
+            ftpd_init(network.ftp_port == 0 ? NETWORK_FTP_PORT : network.ftp_port);
             services.ftp = On;
         }
 #endif
 
 #if HTTP_ENABLE
         if(network.services.http && !services.http) {
-            httpd_init(network.http_port == 0 ? 80 : network.http_port);
+            httpd_init(network.http_port == 0 ? NETWORK_HTTP_PORT : network.http_port);
             services.http = On;
         }
 #endif
@@ -113,7 +113,7 @@ static void netif_status_callback (struct netif *netif)
 #if WEBSOCKET_ENABLE
         if(network.services.websocket && !services.websocket) {
             WsStreamInit();
-            WsStreamListen(network.websocket_port == 0 ? 80 : network.websocket_port);
+            WsStreamListen(network.websocket_port == 0 ? NETWORK_WEBSOCKET_PORT : network.websocket_port);
             services.websocket = On;
         }
 #endif
@@ -216,6 +216,9 @@ static const setting_detail_t ethernet_settings[] = {
     { Setting_Gateway, Group_Networking, "Gateway", NULL, Format_IPv4, NULL, NULL, NULL, Setting_NonCoreFn, ethernet_set_ip, ethernet_get_ip, NULL },
     { Setting_NetMask, Group_Networking, "Netmask", NULL, Format_IPv4, NULL, NULL, NULL, Setting_NonCoreFn, ethernet_set_ip, ethernet_get_ip, NULL },
     { Setting_TelnetPort, Group_Networking, "Telnet port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.telnet_port, NULL, NULL },
+#if FTP_ENABLE
+    { Setting_FtpPort, Group_Networking, "FTP port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.ftp_port, NULL, NULL },
+#endif
 #if HTTP_ENABLE
     { Setting_HttpPort, Group_Networking, "HTTP port", NULL, Format_Int16, "####0", "1", "65535", Setting_NonCore, &ethernet.http_port, NULL, NULL },
 #endif
@@ -231,8 +234,10 @@ static const setting_descr_t ethernet_settings_descr[] = {
     { Setting_IpAddress, "Static IP address." SETTINGS_HARD_RESET_REQUIRED },
     { Setting_Gateway, "Static gateway address." SETTINGS_HARD_RESET_REQUIRED },
     { Setting_NetMask, "Static netmask." SETTINGS_HARD_RESET_REQUIRED },
-    { Setting_TelnetPort, "(Raw) Telnet port number listening for incoming connections." SETTINGS_HARD_RESET_REQUIRED
-    },
+    { Setting_TelnetPort, "(Raw) Telnet port number listening for incoming connections." SETTINGS_HARD_RESET_REQUIRED },
+#if FTP_ENABLE
+    { Setting_FtpPort, "FTP port number listening for incoming connections." SETTINGS_HARD_RESET_REQUIRED },
+#endif
 #if HTTP_ENABLE
     { Setting_HttpPort, "HTTP port number listening for incoming connections." SETTINGS_HARD_RESET_REQUIRED },
 #endif
@@ -358,6 +363,7 @@ void ethernet_settings_restore (void)
         set_addr(ethernet.mask, &addr);
 #endif
 
+    ethernet.ftp_port = NETWORK_FTP_PORT;
     ethernet.telnet_port = NETWORK_TELNET_PORT;
     ethernet.http_port = NETWORK_HTTP_PORT;
     ethernet.websocket_port = NETWORK_WEBSOCKET_PORT;
