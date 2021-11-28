@@ -78,10 +78,6 @@
   #endif
 #endif
 
-#if BLUETOOTH_ENABLE
-#include "bluetooth/bluetooth.h"
-#endif
-
 #if OPENPNP_ENABLE
 #include "openpnp/openpnp.h"
 #endif
@@ -1865,7 +1861,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "211121";
+    hal.driver_version = "211124";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -2018,6 +2014,8 @@ bool driver_init (void)
 
 #endif
 
+    serialRegisterStreams();
+
 #if ETHERNET_ENABLE
     grbl.on_report_options = reportIP;
     enet_init();
@@ -2025,14 +2023,6 @@ bool driver_init (void)
 
 #if MODBUS_ENABLE
     modbus_init(serial2Init(115200), NULL);
-#endif
-
-#if BLUETOOTH_ENABLE
-#if USB_SERIAL_CDC
-    bluetooth_init(serialInit(115200));
-#else
-    bluetooth_init(serial2Init(115200));
-#endif
 #endif
 
 #include "grbl/plugins_init.h"

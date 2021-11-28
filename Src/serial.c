@@ -47,6 +47,39 @@ static enqueue_realtime_command_ptr enqueue_realtime_command2 = stream_buffer_al
   #define USART_IRQHandler USART1_IRQHandler
 #endif
 
+static io_stream_properties_t serial[] = {
+    {
+      .type = StreamType_Serial,
+      .instance = 0,
+      .flags.claimable = On,
+      .flags.claimed = Off,
+      .flags.connected = On,
+      .flags.can_set_baud = On,
+      .claim = serialInit
+    },
+#ifdef SERIAL2_MOD
+    {
+      .type = StreamType_Serial,
+      .instance = 1,
+      .flags.claimable = On,
+      .flags.claimed = Off,
+      .flags.connected = On,
+      .flags.can_set_baud = On,
+      .claim = serial2Init
+    }
+#endif
+};
+
+void serialRegisterStreams (void)
+{
+    static io_stream_details_t streams = {
+        .n_streams = sizeof(serial) / sizeof(io_stream_properties_t),
+        .streams = serial,
+    };
+
+    stream_register_streams(&streams);
+}
+
 //
 // Returns number of free characters in serial input buffer
 //
@@ -210,6 +243,11 @@ const io_stream_t *serialInit (uint32_t baud_rate)
         .set_baud_rate = serialSetBaudRate,
         .set_enqueue_rt_handler = serialSetRtHandler
     };
+
+    if(serial[0].flags.claimed)
+        return NULL;
+
+    serial[0].flags.claimed = On;
 
 #if IS_NUCLEO_DEVKIT
 
@@ -524,6 +562,11 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
         .set_baud_rate = serial2SetBaudRate,
         .set_enqueue_rt_handler = serial2SetRtHandler
     };
+
+    if(serial[1].flags.claimed)
+        return NULL;
+
+    serial[1].flags.claimed = On;
 
 #if IS_NUCLEO_DEVKIT
 
