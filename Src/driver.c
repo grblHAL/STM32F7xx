@@ -308,6 +308,7 @@ static axes_signals_t motors_1 = {AXES_BITMASK}, motors_2 = {AXES_BITMASK};
 #endif
 
 #if ETHERNET_ENABLE
+
 static network_services_t services = {0};
 static stream_write_ptr write_serial;
 
@@ -330,6 +331,7 @@ static void enetStreamWriteS (const char *data)
 static bool pwmEnabled = false;
 static spindle_pwm_t spindle_pwm;
 static void spindle_set_speed (uint_fast16_t pwm_value);
+
 #endif
 
 #if SPINDLE_SYNC_ENABLE
@@ -370,11 +372,11 @@ static bool selectStream (const io_stream_t *stream)
     static stream_type_t active_stream = StreamType_Serial;
     static const io_stream_t *last_serial_stream;
 
-    if(hal.stream.type == StreamType_Serial || hal.stream.type == StreamType_Bluetooth)
-        serial_connected = hal.stream.connected;
-
     if(!stream)
         stream = active_stream == StreamType_Bluetooth ? serial_stream : last_serial_stream;
+
+    if(stream->type == StreamType_Serial || stream->type == StreamType_Bluetooth)
+        serial_connected = stream->connected;
 
     memcpy(&hal.stream, stream, sizeof(io_stream_t));
 
@@ -1861,7 +1863,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "211124";
+    hal.driver_version = "211130";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
