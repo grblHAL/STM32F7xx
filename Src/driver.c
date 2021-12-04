@@ -376,7 +376,9 @@ static bool selectStream (const io_stream_t *stream)
         stream = active_stream == StreamType_Bluetooth ? serial_stream : last_serial_stream;
 
     if(stream->type == StreamType_Serial || stream->type == StreamType_Bluetooth)
-        serial_connected = stream->connected;
+        serial_connected = stream->state.connected;
+
+    bool webui_connected = hal.stream.state.webui_connected;
 
     memcpy(&hal.stream, stream, sizeof(io_stream_t));
 
@@ -399,17 +401,18 @@ static bool selectStream (const io_stream_t *stream)
 #if WEBSOCKET_ENABLE
         case StreamType_WebSocket:
             services.websocket = On;
+            hal.stream.state.webui_connected = webui_connected;
             hal.stream.write_all("[MSG:WEBSOCKET STREAM ACTIVE]" ASCII_EOL);
             break;
 #endif
         case StreamType_Serial:
 #if ETHERNET_ENABLE
             services.mask = 0;
-            write_serial = stream->connected ? hal.stream.write : NULL;
+            write_serial = stream->state.connected ? hal.stream.write : NULL;
 #endif
-            hal.stream.connected = serial_connected;
+            hal.stream.state.connected = serial_connected;
             last_serial_stream = stream;
-            if(active_stream != StreamType_Serial && hal.stream.connected)
+            if(active_stream != StreamType_Serial && hal.stream.state.connected)
                 hal.stream.write_all("[MSG:SERIAL STREAM ACTIVE]" ASCII_EOL);
             break;
 
@@ -1863,7 +1866,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "211130";
+    hal.driver_version = "211203";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
