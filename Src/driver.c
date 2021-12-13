@@ -291,7 +291,6 @@ static const output_signal_t peripin[] = {
 extern __IO uint32_t uwTick;
 static uint32_t pulse_length, pulse_delay, aux_irq = 0;
 static bool IOInitDone = false;
-static const io_stream_t *serial_stream;
 static axes_signals_t next_step_outbits;
 static delay_t delay = { .ms = 1, .callback = NULL }; // NOTE: initial ms set to 1 for "resetting" systick timer on startup
 static debounce_t debounce;
@@ -307,27 +306,8 @@ static probe_state_t probe = {
 static axes_signals_t motors_1 = {AXES_BITMASK}, motors_2 = {AXES_BITMASK};
 #endif
 
-#if ETHERNET_ENABLE
-
-static network_services_t services = {0};
-static stream_write_ptr write_serial;
-
-static void enetStreamWriteS (const char *data)
-{
-#if TELNET_ENABLE
-    if(services.telnet)
-        TCPStreamWriteS(data);
-#endif
-#if WEBSOCKET_ENABLE
-    if(services.websocket)
-        WsStreamWriteS(data);
-#endif
-    if(write_serial)
-        write_serial(data);
-}
-#endif // ETHERNET_ENABLE
-
 #if SPINDLE != 1 && defined(SPINDLE_PWM_TIMER_N)
+
 static bool pwmEnabled = false;
 static spindle_pwm_t spindle_pwm;
 static void spindle_set_speed (uint_fast16_t pwm_value);
@@ -366,79 +346,6 @@ static void driver_delay (uint32_t ms, delay_callback_ptr callback)
     }
 }
 
-static bool selectStream (const io_stream_t *stream)
-{
-    static bool serial_connected = false;
-    static stream_type_t active_stream = StreamType_Serial;
-    static const io_stream_t *last_serial_stream;
-
-    if(!stream)
-        stream = active_stream == StreamType_Bluetooth ? serial_stream : last_serial_stream;
-
-    if(stream->type == StreamType_Serial || stream->type == StreamType_Bluetooth)
-        serial_connected = stream->state.connected;
-
-    bool webui_connected = hal.stream.state.webui_connected;
-
-    memcpy(&hal.stream, stream, sizeof(io_stream_t));
-
-#if ETHERNET_ENABLE
-    if(!hal.stream.write_all)
-        hal.stream.write_all = serial_connected ? enetStreamWriteS : hal.stream.write;
-#else
-    if(!hal.stream.write_all)
-        hal.stream.write_all = hal.stream.write;
-#endif
-
-    switch(stream->type) {
-
-#if TELNET_ENABLE
-        case StreamType_Telnet:
-            services.telnet = On;
-            hal.stream.write_all("[MSG:TELNET STREAM ACTIVE]" ASCII_EOL);
-            break;
-#endif
-#if WEBSOCKET_ENABLE
-        case StreamType_WebSocket:
-            services.websocket = On;
-            hal.stream.state.webui_connected = webui_connected;
-            hal.stream.write_all("[MSG:WEBSOCKET STREAM ACTIVE]" ASCII_EOL);
-            break;
-#endif
-        case StreamType_Serial:
-#if ETHERNET_ENABLE
-            services.mask = 0;
-            write_serial = stream->state.connected ? hal.stream.write : NULL;
-#endif
-            hal.stream.state.connected = serial_connected;
-            last_serial_stream = stream;
-            if(active_stream != StreamType_Serial && hal.stream.state.connected)
-                hal.stream.write_all("[MSG:SERIAL STREAM ACTIVE]" ASCII_EOL);
-            break;
-
-        case StreamType_Bluetooth:
-#if ETHERNET_ENABLE
-            services.mask = 0;
-            write_serial = hal.stream.write;
-#endif
-            last_serial_stream = stream;
-            break;
-        default:
-            break;
-    }
-
-    hal.stream.set_enqueue_rt_handler(protocol_enqueue_realtime_command);
-
-    if(hal.stream.disable_rx)
-        hal.stream.disable_rx(false);
-
-    if(grbl.on_stream_changed)
-        grbl.on_stream_changed(hal.stream.type);
-
-    active_stream = hal.stream.type;
-
-    return stream->type == hal.stream.type;
-}
 
 // Enable/disable stepper motors
 static void stepperEnable (axes_signals_t enable)
@@ -1240,17 +1147,6 @@ static coolant_state_t coolantGetState (void)
     return state;
 }
 
-#if ETHERNET_ENABLE
-static void reportIP (bool newopt)
-{
-    if(!newopt && (services.telnet || services.websocket)) {
-        hal.stream.write("[NETCON:");
-        hal.stream.write(services.telnet ? "Telnet" : "Websocket");
-        hal.stream.write("]" ASCII_EOL);
-    }
-}
-#endif
-
 // Helper functions for setting/clearing/inverting individual bits atomically (uninterruptable)
 static void bitsSetAtomic (volatile uint_fast16_t *ptr, uint_fast16_t bits)
 {
@@ -1866,7 +1762,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "211203";
+    hal.driver_version = "211209";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1929,13 +1825,10 @@ bool driver_init (void)
     hal.periph_port.set_pin_description = setPeriphPinDescription;
 
 #if USB_SERIAL_CDC
-    serial_stream = usbInit();
+    stream_connect(usbInit());
 #else
-    serial_stream = serialInit(115200);
+    stream_connect(serialInit(115200));
 #endif
-
-    hal.stream_select = selectStream;
-    hal.stream_select(serial_stream);
 
 #ifdef I2C_PORT
     i2c_init();
@@ -2022,7 +1915,6 @@ bool driver_init (void)
     serialRegisterStreams();
 
 #if ETHERNET_ENABLE
-    grbl.on_report_options = reportIP;
     enet_init();
 #endif
 

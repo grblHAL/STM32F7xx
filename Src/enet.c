@@ -44,11 +44,13 @@
 
 static volatile bool linkUp = false;
 static char IPAddress[IP4ADDR_STRLEN_MAX];
+static stream_type_t active_stream = StreamType_Null;
 static network_services_t services = {0}, allowed_services;
 static nvs_address_t nvs_address;
 static network_settings_t ethernet, network;
 static on_report_options_ptr on_report_options;
 static on_execute_realtime_ptr on_execute_realtime;
+static on_stream_changed_ptr on_stream_changed;
 static char netservices[30] = ""; // must be large enough to hold all service names
 
 static void report_options (bool newopt)
@@ -65,6 +67,12 @@ static void report_options (bool newopt)
         hal.stream.write("[IP:");
         hal.stream.write(IPAddress);
         hal.stream.write("]" ASCII_EOL);
+
+        if(active_stream == StreamType_Telnet || active_stream == StreamType_WebSocket) {
+            hal.stream.write("[NETCON:");
+            hal.stream.write(active_stream == StreamType_Telnet ? "Telnet" : "Websocket");
+            hal.stream.write("]" ASCII_EOL);
+        }
     }
 }
 
@@ -375,12 +383,24 @@ static void ethernet_settings_load (void)
     ethernet.services.mask &= allowed_services.mask;
 }
 
+static void stream_changed (stream_type_t type)
+{
+    if(type != StreamType_SDCard)
+        active_stream = type;
+
+    if(on_stream_changed)
+        on_stream_changed(type);
+}
+
 bool enet_init (network_settings_t *settings)
 {
     if((nvs_address = nvs_alloc(sizeof(network_settings_t)))) {
 
         on_report_options = grbl.on_report_options;
         grbl.on_report_options = report_options;
+
+        on_stream_changed = grbl.on_stream_changed;
+        grbl.on_stream_changed = stream_changed;
 
         settings_register(&setting_details);
 
