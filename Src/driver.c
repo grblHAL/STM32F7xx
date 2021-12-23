@@ -1827,7 +1827,7 @@ bool driver_init (void)
 #if USB_SERIAL_CDC
     stream_connect(usbInit());
 #else
-    stream_connect(serialInit(115200));
+    stream_connect(serialInit(BAUD_RATE));
 #endif
 
 #ifdef I2C_PORT

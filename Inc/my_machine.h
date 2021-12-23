@@ -38,7 +38,7 @@
 //#if !IS_NUCLEO_DEVKIT   // The Nucleo-F756ZG board has an off-chip UART to USB interface.
 //#define USB_SERIAL_CDC       1 // Serial communication via native USB.
 //#endif
-//#define HUANYANG_ENABLE      1 // Set to 1 or 2 for Huanyang VFD spindle.
+//#define VFD_ENABLE           1 // Set to 1 or 2 for Huanyang VFD spindle. More here https://github.com/grblHAL/Plugins_spindle
 //#define DUAL_SPINDLE         1 // Uncomment for switching between VFD spindle and PWM output with $32
 //#define MODBUS_ENABLE        1 // Set to 1 for auto direction, 2 for direction signal on auxillary output pin.
 //#define WEBUI_ENABLE         1 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.

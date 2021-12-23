@@ -257,7 +257,7 @@ const io_stream_t *serialInit (uint32_t baud_rate)
         .port  = GPIOD,
         .pin   = 8,
         .mode  = { .mask = PINMODE_OUTPUT },
-        .description = "Primary UART"
+        .description = "UART1"
     };
     static const periph_pin_t rx = {
         .function = Input_RX,
@@ -265,7 +265,7 @@ const io_stream_t *serialInit (uint32_t baud_rate)
         .port = GPIOD,
         .pin = 9,
         .mode = { .mask = PINMODE_NONE },
-        .description = "Primary UART"
+        .description = "UART1"
     };
 
 #else
@@ -292,7 +292,7 @@ const io_stream_t *serialInit (uint32_t baud_rate)
         .port = GPIOA,
         .pin = 9,
         .mode = { .mask = PINMODE_OUTPUT },
-        .description = "Primary UART"
+        .description = "UART1"
     };
 
     static const periph_pin_t rx = {
@@ -301,7 +301,7 @@ const io_stream_t *serialInit (uint32_t baud_rate)
         .port = GPIOA,
         .pin = 10,
         .mode = { .mask = PINMODE_NONE },
-        .description = "Primary UART"
+        .description = "UART1"
     };
 
 #endif
@@ -560,7 +560,7 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
         .port = GPIOC,
         .pin = 6,
         .mode = { .mask = PINMODE_OUTPUT },
-        .description = "Secondary UART"
+        .description = "UART2"
     };
 
     static const periph_pin_t rx = {
@@ -569,7 +569,7 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
         .port = GPIOC,
         .pin = 7,
         .mode = { .mask = PINMODE_NONE },
-        .description = "Secondary UART"
+        .description = "UART2"
     };
 
 #else
@@ -596,7 +596,7 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
         .port = GPIOA,
         .pin = 2,
         .mode = { .mask = PINMODE_OUTPUT },
-        .description = "Secondary UART"
+        .description = "UART2"
     };
 
     static const periph_pin_t rx = {
@@ -605,7 +605,7 @@ const io_stream_t *serial2Init (uint32_t baud_rate)
         .port = GPIOA,
         .pin = 3,
         .mode = { .mask = PINMODE_NONE },
-        .description = "Secondary UART"
+        .description = "UART2"
     };
 
 #endif
