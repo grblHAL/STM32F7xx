@@ -1260,7 +1260,7 @@ void settings_changed (settings_t *settings)
 
 #if SPINDLE_SYNC_ENABLE
 
-        if((hal.spindle.get_data = hal.driver_cap.spindle_at_speed ? spindleGetData : NULL) &&
+        if((hal.spindle.get_data = (hal.driver_cap.spindle_at_speed = settings->spindle.ppr > 0) ? spindleGetData : NULL) &&
              (spindle_encoder.ppr != settings->spindle.ppr || pidf_config_changed(&spindle_tracker.pid, &settings->position.pid))) {
 
             hal.spindle.reset_data = spindleDataReset;
@@ -1866,7 +1866,6 @@ bool driver_init (void)
 
 #if SPINDLE_SYNC_ENABLE
     hal.driver_cap.spindle_sync = On;
-    hal.driver_cap.spindle_at_speed = On;
 #endif
 #ifdef COOLANT_MIST_PIN
     hal.driver_cap.mist_control = On;
