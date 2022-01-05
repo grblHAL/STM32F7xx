@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2021 Terje Io
+  Copyright (c) 2021-2022 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -239,7 +239,8 @@
 
 #if MODBUS_ENABLE
 #define SERIAL2_MOD
-#include "spindle/modbus.h"
+#elif BLUETOOTH_ENABLE
+#define SERIAL2_MOD
 #endif
 
 #ifndef I2C_PORT
@@ -250,26 +251,43 @@
 #define SPI_PORT 1
 #endif
 
+#if MODBUS_ENABLE
+#define MODBUS_TEST 1
+#else
+#define MODBUS_TEST 0
+#endif
+
+#if KEYPAD_ENABLE == 2 && MPG_ENABLE == 0
+#define KEYPAD_TEST 1
+#else
+#define KEYPAD_TEST 0
+#endif
+
+#if MODBUS_TEST + KEYPAD_TEST + BLUETOOTH_ENABLE + TRINAMIC_UART_ENABLE + MPG_ENABLE > 1
+#error "Only one option that uses the serial port can be enabled!"
+#endif
+
+#if MODBUS_TEST || KEYPAD_TEST|| BLUETOOTH_ENABLE || TRINAMIC_UART_ENABLE || MPG_ENABLE
+#define SERIAL2_MOD
+#endif
+
+#undef MODBUS_TEST
+#undef KEYPAD_TEST
+
+#if MPG_MODE == 1 && !defined(MPG_MODE_PIN)
+#error "MPG_MODE_PIN must be defined!"
+#endif
+
+
 #if TRINAMIC_ENABLE
   #include "motors/trinamic.h"
   #ifndef TRINAMIC_MIXED_DRIVERS
     #define TRINAMIC_MIXED_DRIVERS 1
   #endif
-  #if TRINAMIC_ENABLE == 2209
-    #if MODBUS_ENABLE
-      #error "Cannot use TMC2209 drivers with Modbus spindle!"
-    #else
-      #define SERIAL2_MOD
-    #endif
-  #endif
 #endif
 
 // End configuration
 
-#if BLUETOOTH_ENABLE
-#define SERIAL2_MOD
-#endif
-#define SERIAL2_MOD
 #if KEYPAD_ENABLE && !defined(KEYPAD_PORT)
 #error Keypad plugin not supported!
 #endif

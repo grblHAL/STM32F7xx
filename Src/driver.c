@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2019-2021 Terje Io
+  Copyright (c) 2019-2022 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -69,13 +69,7 @@
 #endif
 
 #if ETHERNET_ENABLE
-  #include "enet.h"
-  #if TELNET_ENABLE
-    #include "networking/TCPStream.h"
-  #endif
-  #if WEBSOCKET_ENABLE
-    #include "networking/WsStream.h"
-  #endif
+#include "enet.h"
 #endif
 
 #if OPENPNP_ENABLE
@@ -132,8 +126,8 @@ static input_signal_t inputpin[] = {
 #ifdef KEYPAD_STROBE_PIN
     { .id = Input_KeypadStrobe,   .port = KEYPAD_PORT,        .pin = KEYPAD_STROBE_PIN,   .group = PinGroup_Keypad },
 #endif
-#ifdef MODE_SWITCH_PIN
-    { .id = Input_ModeSelect,     .port = MODE_PORT,          .pin = MODE_SWITCH_PIN,     .group = PinGroup_MPG },
+#ifdef MPG_MODE_PIN
+    { .id = Input_MPGSelect,     .port = MPG_MODE_PORT,      .pin = MPG_MODE_PIN,        .group = PinGroup_MPG },
 #endif
 // Limit input pins must be consecutive in this array
     { .id = Input_LimitX,         .port = X_LIMIT_PORT,       .pin = X_LIMIT_PIN,         .group = PinGroup_Limit },
@@ -1338,7 +1332,7 @@ void settings_changed (settings_t *settings)
 
             pullup = false;
             input = &inputpin[--i];
-            if(input->group != PinGroup_AuxInput) {
+            if(!(input->group == PinGroup_AuxInput || input->group == PinGroup_MPG)) {
                 input->irq_mode = IRQ_Mode_None;
                 input->bit = 1 << input->pin;
             }
@@ -1408,8 +1402,8 @@ void settings_changed (settings_t *settings)
                     input->irq_mode = limit_fei.c ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
 
-                case Input_ModeSelect:
-                    input->irq_mode = IRQ_Mode_Change;
+                case Input_MPGSelect:
+                    pullup = true;
                     break;
 
                 case Input_KeypadStrobe:
