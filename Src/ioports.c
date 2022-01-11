@@ -473,12 +473,12 @@ void ioports_init (pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_outputs)
     if((hal.port.num_digital_in = n_in = aux_inputs->n_pins)) {
         hal.port.wait_on_input = wait_on_input;
         hal.port.register_interrupt_handler = register_interrupt_handler;
-        in_map = malloc(n_in * sizeof(uint8_t));
+        in_map = malloc(n_in * sizeof(n_in));
     }
 
     if((hal.port.num_digital_out = n_out = aux_outputs->n_pins)) {
         hal.port.digital_out = digital_out;
-        out_map = malloc(n_out * sizeof(uint8_t));
+        out_map = malloc(n_out * sizeof(n_out));
     }
 
     if((ports = max(n_in, n_out)) > 0)  {

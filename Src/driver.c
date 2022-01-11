@@ -33,6 +33,7 @@
 #include "grbl/protocol.h"
 #include "grbl/motor_pins.h"
 #include "grbl/pin_bits_masks.h"
+#include "grbl/state_machine.h"
 
 #ifdef I2C_PORT
 #include "i2c.h"
@@ -328,11 +329,10 @@ static spindle_data_t *spindleGetData (spindle_data_request_t request);
 static void driver_delay (uint32_t ms, delay_callback_ptr callback)
 {
     if((delay.ms = ms) > 0) {
-        // Restart systick...
-//        SysTick->CTRL &= ~SysTick_CTRL_ENABLE_Msk;
-//        SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
-        if(!(delay.callback = callback))
-            while(delay.ms);
+        if(!(delay.callback = callback)) {
+            while(delay.ms)
+                grbl.on_execute_delay(state_get());
+        }
     } else {
         delay.callback = NULL;
         if(callback)
@@ -1728,7 +1728,10 @@ static bool driver_setup (settings_t *settings)
     IOInitDone = settings->version == 21;
 
     hal.settings_changed(settings);
-    hal.spindle.set_state((spindle_state_t){0}, 0.0f);
+
+    if(hal.spindle.set_state)
+        hal.spindle.set_state((spindle_state_t){0}, 0.0f);
+
     hal.coolant.set_state((coolant_state_t){0});
 
 #if PPI_ENABLE
@@ -1756,7 +1759,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "211209";
+    hal.driver_version = "211211";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1873,8 +1876,6 @@ bool driver_init (void)
     hal.driver_cap.probe_pull_up = On;
 #endif
 
-#ifdef HAS_IOPORTS
-
     uint32_t i;
     input_signal_t *input;
     static pin_group_pins_t aux_inputs = {0}, aux_outputs = {0};
@@ -1884,7 +1885,7 @@ bool driver_init (void)
         if(input->group == PinGroup_AuxInput) {
             if(aux_inputs.pins.inputs == NULL)
                 aux_inputs.pins.inputs = input;
-            aux_inputs.n_pins++;
+            input->id = (pin_function_t)(Input_Aux0 + aux_inputs.n_pins++);
             input->bit = 1 << input->pin;
             input->cap.pull_mode = PullMode_UpDown;
             input->cap.irq_mode = (input->bit & DRIVER_IRQMASK) ? IRQ_Mode_None : IRQ_Mode_Edges;
@@ -1897,12 +1898,12 @@ bool driver_init (void)
         if(output->group == PinGroup_AuxOutput) {
             if(aux_outputs.pins.outputs == NULL)
                 aux_outputs.pins.outputs = output;
-            aux_outputs.n_pins++;
+            output->id = (pin_function_t)(Output_Aux0 + aux_outputs.n_pins++);
         }
     }
 
+#ifdef HAS_IOPORTS
     ioports_init(&aux_inputs, &aux_outputs);
-
 #endif
 
     serialRegisterStreams();
