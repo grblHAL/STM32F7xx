@@ -65,6 +65,12 @@
 #define timercr2ois(c, n) TIM_CR2_OIS ## c ## n
 #define timerAF(t, f) timeraf(t, f)
 #define timeraf(t, f) GPIO_AF ## f ## _TIM ## t
+#define usart(t) usartN(t)
+#define usartN(t) USART ## t
+#define usartINT(t) usartint(t)
+#define usartint(t) USART ## t ## _IRQn
+#define usartHANDLER(t) usarthandler(t)
+#define usarthandler(t) USART ## t ## _IRQHandler
 
 // Define GPIO output mode options
 
@@ -237,12 +243,6 @@
 #define FLASH_ENABLE 0
 #endif
 
-#if MODBUS_ENABLE
-#define SERIAL2_MOD
-#elif BLUETOOTH_ENABLE
-#define SERIAL2_MOD
-#endif
-
 #ifndef I2C_PORT
 #define I2C_PORT 2 // GPIOB, SCL_PIN = 10, SDA_PIN = 11
 #endif
@@ -268,7 +268,11 @@
 #endif
 
 #if MODBUS_TEST || KEYPAD_TEST|| BLUETOOTH_ENABLE || TRINAMIC_UART_ENABLE || MPG_ENABLE
-#define SERIAL2_MOD
+#if IS_NUCLEO_DEVKIT
+#define SERIAL2_MOD 6
+#else
+#define SERIAL2_MOD 2
+#endif
 #endif
 
 #undef MODBUS_TEST
