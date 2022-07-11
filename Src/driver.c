@@ -1085,6 +1085,10 @@ bool spindleConfig (void)
         hal.spindle.set_state = spindleSetState;
     }
 
+#if SPINDLE_SYNC_ENABLE
+    hal.spindle.cap.at_speed = hal.spindle.get_data == spindleGetData;
+#endif
+
     spindle_update_caps(hal.spindle.cap.variable);
 
     return true;
@@ -1251,7 +1255,6 @@ void settings_changed (settings_t *settings)
 
         stepperSetStepOutputs((axes_signals_t){0});
         stepperSetDirOutputs((axes_signals_t){0});
-        stepperEnable(settings->steppers.deenergize);
 
 #ifdef SQUARING_ENABLED
         hal.stepper.disable_motors((axes_signals_t){0}, SquaringMode_Both);
@@ -1753,7 +1756,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "220703";
+    hal.driver_version = "220710";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
