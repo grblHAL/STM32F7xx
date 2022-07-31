@@ -241,7 +241,7 @@ static output_signal_t outputpin[] = {
 #ifdef STEPPERS_POWER_PORT
     { .id = Output_StepperPower,       .port = STEPPERS_POWER_PORT,    .pin = STEPPERS_POWER_PIN,    .group = PinGroup_StepperPower },
 #endif
-#if !TRINAMIC_ENABLE
+#if !TRINAMIC_MOTOR_ENABLE
 #ifdef STEPPERS_ENABLE_PORT
     { .id = Output_StepperEnable,      .port = STEPPERS_ENABLE_PORT,   .pin = STEPPERS_ENABLE_PIN,   .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
 #endif
@@ -263,7 +263,7 @@ static output_signal_t outputpin[] = {
 #ifdef C_ENABLE_PORT
     { .id = Output_StepperEnableC,     .port = C_ENABLE_PORT,          .pin = C_ENABLE_PIN,          .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
 #endif
-#endif // !TRINAMIC_ENABLE
+#endif // !TRINAMIC_MOTOR_ENABLE
 #ifdef MOTOR_CS_PIN
     { .id = Output_MotorChipSelect,    .port = MOTOR_CS_PORT,          .pin = MOTOR_CS_PIN,          .group = PinGroup_MotorChipSelect },
 #endif
@@ -398,7 +398,7 @@ static void driver_delay (uint32_t ms, delay_callback_ptr callback)
 static void stepperEnable (axes_signals_t enable)
 {
     enable.mask ^= settings.steppers.enable_invert.mask;
-#if TRINAMIC_ENABLE && TRINAMIC_I2C
+#if TRINAMIC_MOTOR_ENABLE && TRINAMIC_I2C
     axes_signals_t tmc_enable = trinamic_stepper_enable(enable);
 #else
  #ifdef STEPPERS_ENABLE_PORT
