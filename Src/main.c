@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2021 Terje Io
+  Copyright (c) 2021-2022 Terje Io
   Some parts (C) COPYRIGHT STMicroelectronics - code created by IDE
 
   Grbl is free software: you can redistribute it and/or modify
@@ -37,12 +37,23 @@ int main(void)
 
 void SystemClock_Config(void)
 {
+#if RTC_ENABLE
+    /** Configure LSE Drive Capability */
+    HAL_PWR_EnableBkUpAccess();
+    __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+#endif
+
     /** Configure the main internal regulator output voltage  */
     __HAL_RCC_PWR_CLK_ENABLE();
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
     RCC_OscInitTypeDef RCC_OscInitStruct = {
+#if RTC_ENABLE
+        .OscillatorType = RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_LSE,
+        .LSEState       = RCC_LSE_ON,
+#else
         .OscillatorType = RCC_OSCILLATORTYPE_HSE,
+#endif
         .HSEState       = RCC_HSE_ON,
         .PLL.PLLState   = RCC_PLL_ON,
         .PLL.PLLSource  = RCC_PLLSOURCE_HSE,
@@ -73,7 +84,12 @@ void SystemClock_Config(void)
     }
 
     RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {
+#if RTC_ENABLE
+        .PeriphClockSelection = RCC_PERIPHCLK_USART3|RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_CLK48|RCC_PERIPHCLK_RTC,
+        .RTCClockSelection    = RCC_RTCCLKSOURCE_LSE,
+#else
         .PeriphClockSelection = RCC_PERIPHCLK_USART3|RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_CLK48,
+#endif
         .Usart3ClockSelection = RCC_USART3CLKSOURCE_PCLK1,
         .I2c1ClockSelection   = RCC_I2C1CLKSOURCE_PCLK1,
         .Clk48ClockSelection  = RCC_CLK48SOURCE_PLL
@@ -81,6 +97,10 @@ void SystemClock_Config(void)
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK) {
       Error_Handler();
     }
+
+#if RTC_ENABLE
+    __HAL_RCC_RTC_ENABLE();
+#endif
 }
 
 /**
