@@ -1884,7 +1884,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "220907";
+    hal.driver_version = "220911";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1969,7 +1969,7 @@ bool driver_init (void)
         .get_pwm = spindleGetPWM,
         .update_pwm = spindle_set_speed,
   #if PPI_ENABLE
-        .pulse_on = spindlePulseOn;
+        .pulse_on = spindlePulseOn,
   #endif
  #endif
         .config = spindleConfig,
