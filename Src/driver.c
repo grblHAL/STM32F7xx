@@ -24,6 +24,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdlib.h>
+#include <malloc.h>
 
 #include "main.h"
 #include "driver.h"
@@ -1870,6 +1871,16 @@ static bool get_rtc_time (struct tm *time)
 
 #endif
 
+uint32_t get_free_mem (void)
+{
+    extern uint8_t _end; /* Symbol defined in the linker script */
+    extern uint8_t _estack; /* Symbol defined in the linker script */
+    extern uint32_t _Min_Stack_Size; /* Symbol defined in the linker script */
+    const uint32_t stack_limit = (uint32_t)&_estack - (uint32_t)&_Min_Stack_Size;
+
+    return stack_limit - (uint32_t)&_end - mallinfo().uordblks;
+}
+
 // Initialize HAL pointers, setup serial comms and enable EEPROM
 // NOTE: grblHAL is not yet configured (from EEPROM data), driver_setup() will be called when done
 
@@ -1884,7 +1895,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "220911";
+    hal.driver_version = "220914";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
@@ -1892,6 +1903,7 @@ bool driver_init (void)
     hal.f_mcu = HAL_RCC_GetHCLKFreq() / 1000000UL;
     hal.f_step_timer = HAL_RCC_GetPCLK2Freq();
     hal.rx_buffer_size = RX_BUFFER_SIZE;
+    hal.get_free_mem = get_free_mem;
     hal.delay_ms = &driver_delay;
     hal.settings_changed = settings_changed;
 
