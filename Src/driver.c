@@ -169,6 +169,12 @@ static input_signal_t inputpin[] = {
 #ifdef C_LIMIT_PIN
   , { .id = Input_LimitC,         .port = C_LIMIT_PORT,       .pin = C_LIMIT_PIN,         .group = PinGroup_Limit }
 #endif
+#ifdef U_LIMIT_PIN
+  , { .id = Input_LimitU,         .port = U_LIMIT_PORT,       .pin = U_LIMIT_PIN,         .group = PinGroup_Limit }
+#endif
+#ifdef V_LIMIT_PIN
+  , { .id = Input_LimitV,         .port = V_LIMIT_PORT,       .pin = V_LIMIT_PIN,         .group = PinGroup_Limit }
+#endif
 #if SPINDLE_SYNC_ENABLE
   , { .id = Input_SpindleIndex,   .port = SPINDLE_INDEX_PORT, .pin = SPINDLE_INDEX_PIN,  .group = PinGroup_SpindleIndex }
 #endif
@@ -218,6 +224,12 @@ static output_signal_t outputpin[] = {
 #ifdef C_AXIS
     { .id = Output_StepC,              .port = C_STEP_PORT,            .pin = C_STEP_PIN,            .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
 #endif
+#ifdef U_AXIS
+    { .id = Output_StepU,              .port = U_STEP_PORT,            .pin = U_STEP_PIN,            .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
+#endif
+#ifdef V_AXIS
+    { .id = Output_StepV,              .port = V_STEP_PORT,            .pin = V_STEP_PIN,            .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
+#endif
     { .id = Output_DirX,               .port = X_DIRECTION_PORT,       .pin = X_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
     { .id = Output_DirY,               .port = Y_DIRECTION_PORT,       .pin = Y_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
     { .id = Output_DirZ,               .port = Z_DIRECTION_PORT,       .pin = Z_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
@@ -238,6 +250,12 @@ static output_signal_t outputpin[] = {
 #endif
 #ifdef C_AXIS
     { .id = Output_DirC,               .port = C_DIRECTION_PORT,       .pin = C_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
+#endif
+#ifdef U_AXIS
+    { .id = Output_DirU,               .port = U_DIRECTION_PORT,       .pin = U_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
+#endif
+#ifdef V_AXIS
+    { .id = Output_DirV,               .port = V_DIRECTION_PORT,       .pin = V_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
 #endif
 #ifdef STEPPERS_POWER_PORT
     { .id = Output_StepperPower,       .port = STEPPERS_POWER_PORT,    .pin = STEPPERS_POWER_PIN,    .group = PinGroup_StepperPower },
@@ -263,6 +281,12 @@ static output_signal_t outputpin[] = {
 #endif
 #ifdef C_ENABLE_PORT
     { .id = Output_StepperEnableC,     .port = C_ENABLE_PORT,          .pin = C_ENABLE_PIN,          .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
+#endif
+#ifdef U_ENABLE_PORT
+    { .id = Output_StepperEnableU,     .port = U_ENABLE_PORT,          .pin = U_ENABLE_PIN,          .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
+#endif
+#ifdef V_ENABLE_PORT
+    { .id = Output_StepperEnableU,     .port = V_ENABLE_PORT,          .pin = V_ENABLE_PIN,          .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
 #endif
 #endif // !TRINAMIC_MOTOR_ENABLE
 #ifdef MOTOR_CS_PIN
@@ -426,6 +450,12 @@ static void stepperEnable (axes_signals_t enable)
   #ifdef C_ENABLE_PORT
     DIGITAL_OUT(C_ENABLE_PORT, C_ENABLE_BIT, enable.c);
   #endif
+  #ifdef U_ENABLE_PORT
+    DIGITAL_OUT(U_ENABLE_PORT, U_ENABLE_BIT, enable.u);
+  #endif
+  #ifdef V_ENABLE_PORT
+    DIGITAL_OUT(V_ENABLE_PORT, V_ENABLE_BIT, enable.u);
+  #endif
  #endif
 #endif
 }
@@ -475,6 +505,12 @@ inline static __attribute__((always_inline)) void stepperSetStepOutputs (axes_si
   #ifdef C_AXIS
     DIGITAL_OUT(C_STEP_PORT, C_STEP_BIT, step_outbits_1.c);
   #endif
+  #ifdef U_AXIS
+    DIGITAL_OUT(U_STEP_PORT, U_STEP_BIT, step_outbits_1.u);
+  #endif
+  #ifdef V_AXIS
+      DIGITAL_OUT(V_STEP_PORT, V_STEP_BIT, step_outbits_1.v);
+  #endif
 #elif STEP_OUTMODE == GPIO_MAP
     STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | step_outmap[step_outbits_1.value & motors_1.mask];
 #else
@@ -518,6 +554,12 @@ inline static __attribute__((always_inline)) void stepperSetStepOutputs (axes_si
   #endif
   #ifdef C_AXIS
     DIGITAL_OUT(C_STEP_PORT, C_STEP_BIT, step_outbits.c);
+  #endif
+  #ifdef U_AXIS
+    DIGITAL_OUT(U_STEP_PORT, U_STEP_BIT, step_outbits.u);
+  #endif
+  #ifdef V_AXIS
+    DIGITAL_OUT(V_STEP_PORT, V_STEP_BIT, step_outbits.v);
   #endif
 #elif STEP_OUTMODE == GPIO_MAP
     STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | step_outmap[step_outbits.value];
@@ -590,6 +632,12 @@ inline static __attribute__((always_inline)) void stepperSetDirOutputs (axes_sig
   #endif
   #ifdef C_AXIS
     DIGITAL_OUT(C_DIRECTION_PORT, C_DIRECTION_BIT, dir_outbits.c);
+  #endif
+  #ifdef U_AXIS
+    DIGITAL_OUT(U_DIRECTION_PORT, U_DIRECTION_BIT, dir_outbits.u);
+  #endif
+  #ifdef V_AXIS
+    DIGITAL_OUT(V_DIRECTION_PORT, V_DIRECTION_BIT, dir_outbits.v);
   #endif
 #elif DIRECTION_OUTMODE == GPIO_MAP
     DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | dir_outmap[dir_outbits.value];
@@ -811,6 +859,12 @@ inline static limit_signals_t limitsGetState()
   #ifdef C_LIMIT_PIN
     signals.min.c = DIGITAL_IN(C_LIMIT_PORT, C_LIMIT_BIT);
   #endif
+  #ifdef U_LIMIT_PIN
+    signals.min.u = DIGITAL_IN(U_LIMIT_PORT, U_LIMIT_BIT);
+  #endif
+  #ifdef V_LIMIT_PIN
+    signals.min.v = DIGITAL_IN(V_LIMIT_PORT, V_LIMIT_BIT);
+  #endif
 #elif LIMIT_INMODE == GPIO_MAP
     uint32_t bits = LIMIT_PORT->IDR;
     signals.min.x = !!(bits & X_LIMIT_BIT);
@@ -824,6 +878,12 @@ inline static limit_signals_t limitsGetState()
   #endif
   #ifdef C_LIMIT_PIN
     signals.min.c = !!(bits & C_LIMIT_BIT);
+  #endif
+  #ifdef U_LIMIT_PIN
+    signals.min.u = !!(bits & U_LIMIT_BIT);
+  #endif
+  #ifdef V_LIMIT_PIN
+    signals.min.v = !!(bits & V_LIMIT_BIT);
   #endif
 #else
     signals.min.value = (uint8_t)((LIMIT_PORT->IDR & LIMIT_MASK) >> LIMIT_INMODE);
@@ -1461,6 +1521,18 @@ void settings_changed (settings_t *settings)
                     input->irq_mode = limit_fei.c ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
 
+                case Input_LimitU:
+                case Input_LimitU_Max:
+                    pullup = !settings->limits.disable_pullup.u;
+                    input->irq_mode = limit_fei.u ? IRQ_Mode_Falling : IRQ_Mode_Rising;
+                    break;
+
+                case Input_LimitV:
+                case Input_LimitV_Max:
+                    pullup = !settings->limits.disable_pullup.u;
+                    input->irq_mode = limit_fei.v ? IRQ_Mode_Falling : IRQ_Mode_Rising;
+                    break;
+
                 case Input_MPGSelect:
                     pullup = true;
                     break;
@@ -1895,7 +1967,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "220914";
+    hal.driver_version = "220918";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
