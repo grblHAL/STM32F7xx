@@ -1195,7 +1195,7 @@ bool spindleConfig (void)
     hal.spindle.cap.at_speed = hal.spindle.get_data == spindleGetData;
 #endif
 
-    spindle_update_caps(hal.spindle.cap.variable);
+    spindle_update_caps(hal.spindle.cap.variable ? &spindle_pwm : NULL);
 
     return true;
 }
@@ -1967,7 +1967,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "220918";
+    hal.driver_version = "220922";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
 #endif
