@@ -1,3 +1,4 @@
+/* USER CODE BEGIN Header */
 /**
  ******************************************************************************
   * File Name          : LWIP.c
@@ -6,16 +7,16 @@
   ******************************************************************************
   * @attention
   *
-  * <h2><center>&copy; Copyright (c) 2021 STMicroelectronics.
-  * All rights reserved.</center></h2>
+  * Copyright (c) 2022 STMicroelectronics.
+  * All rights reserved.
   *
-  * This software component is licensed by ST under Ultimate Liberty license
-  * SLA0044, the "License"; You may not use this file except in compliance with
-  * the License. You may obtain a copy of the License at:
-  *                             www.st.com/SLA0044
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
   *
   ******************************************************************************
   */
+/* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
 #include "lwip.h"
@@ -30,6 +31,8 @@
 
 /* USER CODE END 0 */
 /* Private function prototypes -----------------------------------------------*/
+static void ethernet_link_status_updated(struct netif *netif);
+static void Ethernet_Link_Periodic_Handle(struct netif *netif);
 /* ETH Variables initialization ----------------------------------------------*/
 void Error_Handler(void);
 
@@ -39,6 +42,7 @@ uint32_t DHCPcoarseTimer = 0;
 /* USER CODE BEGIN 1 */
 
 /* USER CODE END 1 */
+uint32_t EthernetLinkTimer;
 
 /* Variables Initialization */
 struct netif gnetif;
@@ -47,7 +51,7 @@ ip4_addr_t netmask;
 ip4_addr_t gw;
 
 /* USER CODE BEGIN 2 */
-
+static char IPAddress[IP4ADDR_STRLEN_MAX];
 /* USER CODE END 2 */
 
 /**
@@ -81,7 +85,7 @@ void MX_LWIP_Init(void)
   }
 
   /* Set the link callback function, this function is called on change of link status*/
-  netif_set_link_callback(&gnetif, ethernetif_update_config);
+  netif_set_link_callback(&gnetif, ethernet_link_status_updated);
 
   /* Create the Ethernet link handler thread */
 
@@ -89,6 +93,7 @@ void MX_LWIP_Init(void)
   dhcp_start(&gnetif);
 
 /* USER CODE BEGIN 3 */
+  //netif_set_status_callback(&gnetif, netif_status_callback);
 
 /* USER CODE END 3 */
 }
@@ -99,6 +104,26 @@ void MX_LWIP_Init(void)
 /* USER CODE BEGIN 4 */
 /* USER CODE END 4 */
 #endif
+
+/**
+  * @brief  Ethernet Link periodic check
+  * @param  netif
+  * @retval None
+  */
+static void Ethernet_Link_Periodic_Handle(struct netif *netif)
+{
+/* USER CODE BEGIN 4_4_1 */
+/* USER CODE END 4_4_1 */
+
+  /* Ethernet Link every 100ms */
+  if (HAL_GetTick() - EthernetLinkTimer >= 100)
+  {
+    EthernetLinkTimer = HAL_GetTick();
+    ethernet_link_check_state(netif);
+  }
+/* USER CODE BEGIN 4_4 */
+/* USER CODE END 4_4 */
+}
 
 /**
  * ----------------------------------------------------------------------
@@ -122,8 +147,29 @@ void MX_LWIP_Process(void)
   /* Handle timeouts */
   sys_check_timeouts();
 
+  Ethernet_Link_Periodic_Handle(&gnetif);
+
 /* USER CODE BEGIN 4_3 */
 /* USER CODE END 4_3 */
+}
+
+/**
+  * @brief  Notify the User about the network interface config status
+  * @param  netif: the network interface
+  * @retval None
+  */
+static void ethernet_link_status_updated(struct netif *netif)
+{
+  if (netif_is_up(netif))
+  {
+/* USER CODE BEGIN 5 */
+/* USER CODE END 5 */
+  }
+  else /* netif is down */
+  {
+/* USER CODE BEGIN 6 */
+/* USER CODE END 6 */
+  }
 }
 
 #if defined ( __CC_ARM )  /* MDK ARM Compiler */
@@ -199,4 +245,3 @@ u32_t sio_tryread(sio_fd_t fd, u8_t *data, u32_t len)
 }
 #endif /* MDK ARM Compiler */
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

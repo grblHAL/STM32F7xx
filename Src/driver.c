@@ -1968,8 +1968,12 @@ bool driver_init (void)
 
     hal.info = "STM32F756";
     hal.driver_version = "220922";
+    hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
+#endif
+#ifdef BOARD_URL
+    hal.board = BOARD_URL;
 #endif
     hal.driver_setup = driver_setup;
     hal.f_mcu = HAL_RCC_GetHCLKFreq() / 1000000UL;
