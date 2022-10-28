@@ -10,6 +10,7 @@
     "auto_square": 1,
     "digital_in": 7,
     "digital_out": 4,
+    "probe": 1,
     "safety_door": 1,
     "estop": 1,
     "mpg_mode": 1,
@@ -30,7 +31,7 @@
       { "id": "laser_coolant" },
       { "id": "fans" },
       { "id": "openpnp" },
-      { "id": "bluetooth" }
+      { "id": "bluetooth_bridge" }
     ]
   },
   "symbols": {
