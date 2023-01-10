@@ -1,5 +1,5 @@
 #
-# Template for Web Builder, STM32H7xx
+# Template for Web Builder, STM32F7xx
 #
 
 [platformio]
@@ -11,9 +11,7 @@ build_flags =
   -I .
   -D L1_CACHE_ENABLE=1
   -D OVERRIDE_MY_MACHINE
-  -I FATFS/Target
-  -I FATFS/App
-  -I Middlewares/Third_Party/FatFs/src
+  -I FatFs
   -I Middlewares/ST/STM32_USB_Device_Library/Class/CDC/Inc
   -I Middlewares/ST/STM32_USB_Device_Library/Core/Inc
   -I USB_DEVICE/Target

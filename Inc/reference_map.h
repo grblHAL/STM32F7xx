@@ -3,7 +3,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2021-2022 Terje Io
+  Copyright (c) 2021-2023 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -171,6 +171,9 @@
 #define CYCLE_START_PORT        GPIOF
 #define CYCLE_START_PIN         4
 #if SAFETY_DOOR_ENABLE
+#if N_ABC_MOTORS
+#error "Safety door cannot be enabled when > 3 motors are defined."
+#endif
 #define SAFETY_DOOR_PORT        GPIOB
 #define SAFETY_DOOR_PIN         10
 #endif
