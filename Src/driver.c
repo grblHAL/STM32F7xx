@@ -54,10 +54,6 @@
 #include "eeprom/eeprom.h"
 #endif
 
-#if KEYPAD_ENABLE
-#include "keypad/keypad.h"
-#endif
-
 #if ODOMETER_ENABLE
 #include "odometer/odometer.h"
 #endif
@@ -78,8 +74,8 @@
 #include "openpnp/openpnp.h"
 #endif
 
-#if KEYPAD_ENABLE == 0
-#define KEYPAD_STROBE_BIT 0
+#if !I2C_STROBE_ENABLE
+#define I2C_STROBE_BIT 0
 #endif
 
 #if !SAFETY_DOOR_ENABLE
@@ -94,9 +90,9 @@
 #error Interrupt enabled input pins must have unique pin numbers!
 #endif
 
-#define DRIVER_IRQMASK (LIMIT_MASK|CONTROL_MASK|KEYPAD_STROBE_BIT|SPINDLE_INDEX_BIT)
+#define DRIVER_IRQMASK (LIMIT_MASK|CONTROL_MASK|I2C_STROBE_BIT|SPINDLE_INDEX_BIT)
 
-#if DRIVER_IRQMASK != (LIMIT_MASK+CONTROL_MASK+KEYPAD_STROBE_BIT+SPINDLE_INDEX_BIT)
+#if DRIVER_IRQMASK != (LIMIT_MASK+CONTROL_MASK+I2C_STROBE_BIT+SPINDLE_INDEX_BIT)
 #error Interrupt enabled input pins must have unique pin numbers!
 #endif
 
@@ -143,11 +139,11 @@ static input_signal_t inputpin[] = {
 #ifdef PROBE_PIN
     { .id = Input_Probe,          .port = PROBE_PORT,         .pin = PROBE_PIN,           .group = PinGroup_Probe },
 #endif
-#ifdef KEYPAD_STROBE_PIN
-    { .id = Input_KeypadStrobe,   .port = KEYPAD_PORT,        .pin = KEYPAD_STROBE_PIN,   .group = PinGroup_Keypad },
+#ifdef I2C_STROBE_PIN
+    { .id = Input_KeypadStrobe,   .port = I2C_STROBE_PORT,    .pin = I2C_STROBE_PIN,      .group = PinGroup_Keypad },
 #endif
 #ifdef MPG_MODE_PIN
-    { .id = Input_MPGSelect,     .port = MPG_MODE_PORT,       .pin = MPG_MODE_PIN,        .group = PinGroup_MPG },
+    { .id = Input_MPGSelect,      .port = MPG_MODE_PORT,      .pin = MPG_MODE_PIN,        .group = PinGroup_MPG },
 #endif
 // Limit input pins must be consecutive in this array
     { .id = Input_LimitX,         .port = X_LIMIT_PORT,       .pin = X_LIMIT_PIN,         .group = PinGroup_Limit },
@@ -381,6 +377,22 @@ static debounce_t debounce;
 static probe_state_t probe = {
     .connected = On
 };
+#endif
+
+#if I2C_STROBE_ENABLE
+
+static driver_irq_handler_t i2c_strobe = { .type = IRQ_I2C_Strobe };
+
+static bool irq_claim (irq_type_t irq, uint_fast8_t id, irq_callback_ptr handler)
+{
+    bool ok;
+
+    if((ok = irq == IRQ_I2C_Strobe && i2c_strobe.callback == NULL))
+        i2c_strobe.callback = handler;
+
+    return ok;
+}
+
 #endif
 
 #include "grbl/stepdir_map.h"
@@ -1865,7 +1877,7 @@ static bool driver_setup (settings_t *settings)
 
 #endif
 
-    IOInitDone = settings->version == 21;
+    IOInitDone = settings->version == 22;
 
     hal.settings_changed(settings);
 
@@ -1969,7 +1981,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "221014";
+    hal.driver_version = "230125";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2013,6 +2025,9 @@ bool driver_init (void)
 
     hal.irq_enable = __enable_irq;
     hal.irq_disable = __disable_irq;
+#if I2C_STROBE_ENABLE
+    hal.irq_claim = irq_claim;
+#endif
     hal.set_bits_atomic = bitsSetAtomic;
     hal.clear_bits_atomic = bitsClearAtomic;
     hal.set_value_atomic = valueSetAtomic;
@@ -2247,7 +2262,7 @@ void RPM_COUNTER_IRQHandler (void)
 
 #if (DRIVER_IRQMASK|AUXINPUT_MASK) & (1<<0)
 
-void EXTI0_IRQHandler(void)
+void EXTI0_IRQHandler (void)
 {
     uint32_t ifg = __HAL_GPIO_EXTI_GET_IT(1<<0);
 
@@ -2262,8 +2277,9 @@ void EXTI0_IRQHandler(void)
         } else
   #endif
         hal.control.interrupt_callback(systemGetState());
-#elif defined(KEYPAD_ENABLED) && KEYPAD_STROBE_BIT & (1<<0)
-        keypad_keyclick_handler(DIGITAL_IN(KEYPAD_PORT, KEYPAD_STROBE_BIT) == 0);
+#elif defined(I2C_STROBE_ENABLE) && I2C_STROBE_BIT & (1<<0)
+        if(i2c_strobe.callback)
+            i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
 #elif LIMIT_MASK & (1<<0)
         if(hal.driver_cap.software_debounce) {
             debounce.limits = On;
@@ -2490,9 +2506,9 @@ void EXTI15_10_IRQHandler(void)
                 hal.limits.interrupt_callback(limitsGetState());
         }
 #endif
-#if KEYPAD_ENABLE
-        if(ifg & KEYPAD_STROBE_BIT)
-            keypad_keyclick_handler(DIGITAL_IN(KEYPAD_PORT, KEYPAD_STROBE_BIT) == 0);
+#if I2C_STROBE_ENABLE && (I2C_STROBE_BIT & 0x03E0)
+        if((ifg & I2C_STROBE_BIT) && i2c_strobe.callback)
+            i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
 #endif
 #if AUXINPUT_MASK & 0xFC00
         if(ifg & aux_irq)
