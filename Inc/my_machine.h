@@ -82,6 +82,7 @@
 //#define WEBSOCKET_ENABLE    1 // Websocket daemon - requires Ethernet streaming enabled.
 //#define MDNS_ENABLE         1 // mDNS daemon.
 //#define SSDP_ENABLE         1 // SSDP daemon - requires HTTP enabled.
+//#define MQTT_ENABLE         1 // MQTT client API, only enable if needed by plugin code.
 #ifdef SDCARD_ENABLE
 //#define FTP_ENABLE          1 // Ftp daemon - requires SD card enabled.
 //#define HTTP_ENABLE         1 // http daemon - requires SD card enabled.
