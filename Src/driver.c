@@ -86,13 +86,13 @@
 #define SPINDLE_INDEX_BIT 0
 #endif
 
-#if CONTROL_MASK != (RESET_BIT+FEED_HOLD_BIT+CYCLE_START_BIT+SAFETY_DOOR_BIT)
+#if CONTROL_MASK != CONTROL_MASK_SUM
 #error Interrupt enabled input pins must have unique pin numbers!
 #endif
 
 #define DRIVER_IRQMASK (LIMIT_MASK|CONTROL_MASK|I2C_STROBE_BIT|SPINDLE_INDEX_BIT)
 
-#if DRIVER_IRQMASK != (LIMIT_MASK+CONTROL_MASK+I2C_STROBE_BIT+SPINDLE_INDEX_BIT)
+#if DRIVER_IRQMASK != (LIMIT_MASK_SUM+CONTROL_MASK_SUM+I2C_STROBE_BIT+SPINDLE_INDEX_BIT)
 #error Interrupt enabled input pins must have unique pin numbers!
 #endif
 

@@ -137,7 +137,7 @@ network_info_t *networking_get_info (void)
             ip4addr_ntoa_r(netif_ip_netmask4(netif), info.status.mask, IP4ADDR_STRLEN_MAX);
         }
 
-        sprintf(info.mac, "%02X:%02X:%02X:%02X:%02X:%02X", netif->hwaddr[0], netif->hwaddr[1], netif->hwaddr[2], netif->hwaddr[3], netif->hwaddr[4], netif->hwaddr[5]);
+        sprintf(info.mac, MAC_FORMAT_STRING, netif->hwaddr[0], netif->hwaddr[1], netif->hwaddr[2], netif->hwaddr[3], netif->hwaddr[4], netif->hwaddr[5]);
     }
 
 #if MQTT_ENABLE
