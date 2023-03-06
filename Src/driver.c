@@ -287,6 +287,15 @@ static output_signal_t outputpin[] = {
 #ifdef V_ENABLE_PORT
     { .id = Output_StepperEnableU,     .port = V_ENABLE_PORT,          .pin = V_ENABLE_PIN,          .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
 #endif
+#ifdef X2_ENABLE_PIN
+    { .id = Output_StepperEnableX,     .port = X2_ENABLE_PORT,         .pin = X2_ENABLE_PIN,         .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
+#endif
+#ifdef Y2_ENABLE_PIN
+    { .id = Output_StepperEnableY,     .port = Y2_ENABLE_PORT,         .pin = Y2_ENABLE_PIN,         .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
+#endif
+#ifdef Z2_ENABLE_PIN
+    { .id = Output_StepperEnableZ,     .port = Z2_ENABLE_PORT,         .pin = Z2_ENABLE_PIN,         .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
+#endif
 #endif // !TRINAMIC_MOTOR_ENABLE
 #ifdef MOTOR_CS_PIN
     { .id = Output_MotorChipSelect,    .port = MOTOR_CS_PORT,          .pin = MOTOR_CS_PIN,          .group = PinGroup_MotorChipSelect },
@@ -1983,7 +1992,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "230129";
+    hal.driver_version = "230206";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
