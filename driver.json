@@ -32,7 +32,8 @@
       { "id": "laser_coolant" },
       { "id": "fans" },
       { "id": "openpnp" },
-      { "id": "bluetooth_bridge" }
+      { "id": "bluetooth_bridge" },
+      { "id": "embroidery" }
     ]
   },
   "symbols": {
