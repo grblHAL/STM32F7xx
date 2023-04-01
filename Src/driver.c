@@ -1992,7 +1992,7 @@ bool driver_init (void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
     hal.info = "STM32F756";
-    hal.driver_version = "230206";
+    hal.driver_version = "230331";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2112,7 +2112,7 @@ bool driver_init (void)
 #ifdef SAFETY_DOOR_PIN
     hal.signals_cap.safety_door_ajar = On;
 #endif
-
+    hal.limits_cap = get_limits_cap();
 #if SPINDLE_SYNC_ENABLE
     hal.driver_cap.spindle_sync = On;
 #endif
