@@ -420,8 +420,6 @@ static spindle_encoder_t spindle_encoder = {
     .tics_per_irq = 4
 };
 static spindle_sync_t spindle_tracker;
-static volatile bool spindleLock = false;
-
 static void stepperPulseStartSynchronized (stepper_t *stepper);
 static void spindleDataReset (void);
 static spindle_data_t *spindleGetData (spindle_data_request_t request);
@@ -1253,7 +1251,7 @@ static spindle_data_t *spindleGetData (spindle_data_request_t request)
 
 static void spindleDataReset (void)
 {
-    while(spindleLock);
+    while(spindle_encoder.spin_lock);
 
     uint32_t timeout = uwTick + 1000; // 1 second
 
