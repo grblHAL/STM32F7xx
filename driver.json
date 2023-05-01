@@ -69,6 +69,7 @@
       "name": "grblHAL reference map",
       "symbol": "BOARD_REFERENCE",
       "URL": "",
+      "MAP": "Inc/reference_map.h",
       "caps": {
         "axes": 8,
         "digital_in": 3,
