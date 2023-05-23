@@ -16,6 +16,8 @@
     "mpg_mode": 1,
     "sdcard": 1,
 	"keypad": 0,
+    "ethernet": 1,
+    "hc05": 1,
     "pio_board": "nucleo_f756zg",
     "ldscript": "STM32F756ZGTX_FLASH.ld",
     "plugins": [
@@ -24,7 +26,7 @@
       { "id": "eeprom" },
       { "id": "sdcard" },
       { "id": "webui" },
-      { "id": "eth_networking" },
+      { "id": "networking" },
       { "id": "keypad" },
       { "id": "plasma" },
       { "id": "laser_ppi" },
@@ -32,7 +34,7 @@
       { "id": "laser_coolant" },
       { "id": "fans" },
       { "id": "openpnp" },
-      { "id": "bluetooth_bridge" },
+      { "id": "bluetooth" },
       { "id": "embroidery" }
     ]
   },
