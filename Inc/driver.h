@@ -71,6 +71,7 @@
 #define usartint(t) USART ## t ## _IRQn
 #define usartHANDLER(t) usarthandler(t)
 #define usarthandler(t) USART ## t ## _IRQHandler
+#define TIMER_CLOCK_MUL(d) (d == RCC_HCLK_DIV1 ? 1 : 2)
 
 // Define GPIO output mode options
 
@@ -263,7 +264,7 @@
 #define KEYPAD_TEST 0
 #endif
 
-#if MODBUS_TEST + KEYPAD_TEST + BLUETOOTH_ENABLE + TRINAMIC_UART_ENABLE + MPG_ENABLE > 1
+#if MODBUS_TEST + KEYPAD_TEST + (BLUETOOTH_ENABLE ? 1 : 0) + TRINAMIC_UART_ENABLE + MPG_ENABLE > 1
 #error "Only one option that uses the serial port can be enabled!"
 #endif
 
