@@ -186,8 +186,9 @@
 
 
 #if SDCARD_ENABLE
-#define SD_CS_PORT              GPIOC
-#define SD_CS_PIN               8
+//#define SD_CS_PORT              GPIOC
+//#define SD_CS_PIN               8
+#define SDCARD_SDIO             1
 #endif
 
 #define AUXINPUT0_PORT          GPIOE

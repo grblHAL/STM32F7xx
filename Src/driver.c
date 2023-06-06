@@ -100,6 +100,8 @@
 #define MAX_LIMIT_SWITCHES
 #endif
 
+#define STEPPER_TIMER_DIV 4
+
 typedef union {
     uint8_t mask;
     struct {
@@ -415,11 +417,14 @@ static axes_signals_t motors_1 = {AXES_BITMASK}, motors_2 = {AXES_BITMASK};
 
 #include "grbl/spindle_sync.h"
 
+#define RPM_TIMER_RESOLUTION 1
+
 static spindle_data_t spindle_data;
 static spindle_encoder_t spindle_encoder = {
     .tics_per_irq = 4
 };
 static spindle_sync_t spindle_tracker;
+
 static void stepperPulseStartSynchronized (stepper_t *stepper);
 static void spindleDataReset (void);
 static spindle_data_t *spindleGetData (spindle_data_request_t request);
@@ -439,7 +444,6 @@ static void driver_delay (uint32_t ms, delay_callback_ptr callback)
             callback();
     }
 }
-
 
 // Enable/disable stepper motors
 static void stepperEnable (axes_signals_t enable)
@@ -1406,22 +1410,22 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
 
 #if SPINDLE_SYNC_ENABLE
 
+        spindle_tracker.min_cycles_per_tick = hal.f_step_timer / (uint32_t)(settings->axis[Z_AXIS].max_rate * settings->axis[Z_AXIS].steps_per_mm / 60.0f);
+
         if((hal.spindle_data.get = settings->spindle.ppr > 0 ? spindleGetData : NULL) &&
              (spindle_encoder.ppr != settings->spindle.ppr || pidf_config_changed(&spindle_tracker.pid, &settings->position.pid))) {
 
             hal.spindle_data.reset = spindleDataReset;
-            spindle_get(spindle_get_current())->set_state((spindle_state_t){0}, 0.0f);
+            if(spindle_get(0))
+                spindle_get(0)->set_state((spindle_state_t){0}, 0.0f);
 
             pidf_init(&spindle_tracker.pid, &settings->position.pid);
 
-            float timer_resolution = 1.0f / 1000000.0f; // 1 us resolution
-
-            spindle_tracker.min_cycles_per_tick = hal.f_step_timer / (uint32_t)(settings->axis[Z_AXIS].max_rate * settings->axis[Z_AXIS].steps_per_mm / 60.0f);
             spindle_encoder.ppr = settings->spindle.ppr;
             spindle_encoder.tics_per_irq = max(1, spindle_encoder.ppr / 32);
             spindle_encoder.pulse_distance = 1.0f / spindle_encoder.ppr;
-            spindle_encoder.maximum_tt = (uint32_t)(2.0f / timer_resolution) / spindle_encoder.tics_per_irq;
-            spindle_encoder.rpm_factor = 60.0f / ((timer_resolution * (float)spindle_encoder.ppr));
+            spindle_encoder.maximum_tt = 250000UL / RPM_TIMER_RESOLUTION; // 250ms
+            spindle_encoder.rpm_factor = (60.0f * 1000000.0f / RPM_TIMER_RESOLUTION) / (float)spindle_encoder.ppr;
             spindleDataReset();
         }
 
@@ -1874,7 +1878,9 @@ static bool driver_setup (settings_t *settings)
 
     STEPPER_TIMER->CR1 &= ~TIM_CR1_CEN;
     STEPPER_TIMER->SR &= ~TIM_SR_UIF;
+    STEPPER_TIMER->PSC = STEPPER_TIMER_DIV - 1;
     STEPPER_TIMER->CNT = 0;
+    STEPPER_TIMER->CR1 |= TIM_CR1_DIR;
     STEPPER_TIMER->DIER |= TIM_DIER_UIE;
 
     NVIC_SetPriority(STEPPER_TIMER_IRQn, 1);
@@ -2085,8 +2091,13 @@ bool driver_init (void)
     __HAL_RCC_GPIOF_CLK_ENABLE();
     __HAL_RCC_GPIOG_CLK_ENABLE();
 
+    uint32_t latency;
+    RCC_ClkInitTypeDef clock_cfg;
+
+    HAL_RCC_GetClockConfig(&clock_cfg, &latency);
+
     hal.info = "STM32F756";
-    hal.driver_version = "230602";
+    hal.driver_version = "230606";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2096,7 +2107,7 @@ bool driver_init (void)
 #endif
     hal.driver_setup = driver_setup;
     hal.f_mcu = HAL_RCC_GetHCLKFreq() / 1000000UL;
-    hal.f_step_timer = HAL_RCC_GetPCLK2Freq();
+    hal.f_step_timer = HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock_cfg.APB1CLKDivider) / STEPPER_TIMER_DIV;
     hal.rx_buffer_size = RX_BUFFER_SIZE;
     hal.get_free_mem = get_free_mem;
     hal.delay_ms = &driver_delay;
