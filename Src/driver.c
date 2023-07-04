@@ -74,31 +74,13 @@
 #include "openpnp/openpnp.h"
 #endif
 
-#if !I2C_STROBE_ENABLE
-#define I2C_STROBE_BIT 0
-#endif
+#define DRIVER_IRQMASK (LIMIT_MASK|CONTROL_MASK|DEVICES_IRQ_MASK)
 
-#if !SAFETY_DOOR_ENABLE
-#define SAFETY_DOOR_BIT 0
-#endif
-
-#if !SPINDLE_SYNC_ENABLE
-#define SPINDLE_INDEX_BIT 0
-#endif
-
-#if CONTROL_MASK != CONTROL_MASK_SUM
+#if DRIVER_IRQMASK != (LIMIT_MASK_SUM+CONTROL_MASK_SUM+DEVICES_IRQ_MASK_SUM)
 #error Interrupt enabled input pins must have unique pin numbers!
 #endif
 
-#define DRIVER_IRQMASK (LIMIT_MASK|CONTROL_MASK|I2C_STROBE_BIT|SPINDLE_INDEX_BIT)
-
-#if DRIVER_IRQMASK != (LIMIT_MASK_SUM+CONTROL_MASK_SUM+I2C_STROBE_BIT+SPINDLE_INDEX_BIT)
-#error Interrupt enabled input pins must have unique pin numbers!
-#endif
-
-#if defined(X_LIMIT_PIN_MAX) || defined(Y_LIMIT_PIN_MAX) || defined(Z2_LIMIT_PIN_MAX)
-#define MAX_LIMIT_SWITCHES
-#endif
+#define PROBE_IRQ_BIT 0
 
 #define STEPPER_TIMER_DIV 4
 
@@ -391,21 +373,44 @@ static probe_state_t probe = {
 };
 #endif
 
-#if I2C_STROBE_ENABLE
+#if I2C_STROBE_BIT || SPI_IRQ_BIT
 
+#if I2C_STROBE_BIT
 static driver_irq_handler_t i2c_strobe = { .type = IRQ_I2C_Strobe };
+#endif
+
+#if SPI_IRQ_BIT
+static driver_irq_handler_t spi_irq = { .type = IRQ_SPI };
+#endif
 
 static bool irq_claim (irq_type_t irq, uint_fast8_t id, irq_callback_ptr handler)
 {
-    bool ok;
+    bool ok = false;
 
-    if((ok = irq == IRQ_I2C_Strobe && i2c_strobe.callback == NULL))
-        i2c_strobe.callback = handler;
+    switch(irq) {
+
+#if I2C_STROBE_BIT
+        case IRQ_I2C_Strobe:
+            if((ok = i2c_strobe.callback == NULL))
+                i2c_strobe.callback = handler;
+            break;
+#endif
+
+#ifdef SPI_IRQ_BIT
+        case IRQ_SPI:
+            if((ok = spi_irq.callback == NULL))
+                spi_irq.callback = handler;
+            break;
+#endif
+
+        default:
+            break;
+    }
 
     return ok;
 }
 
-#endif
+#endif // I2C_STROBE_BIT || SPI_IRQ_BIT
 
 #include "grbl/stepdir_map.h"
 
@@ -2097,7 +2102,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "230606";
+    hal.driver_version = "230702";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2320,6 +2325,16 @@ void PULSE_TIMER_IRQHandler (void)
         stepperSetStepOutputs((axes_signals_t){0}); // end step pulse
 }
 
+static inline bool debounce_start (void)
+{
+    if(hal.driver_cap.software_debounce) {
+        DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
+        DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
+    }
+
+    return hal.driver_cap.software_debounce;
+}
+
 // Debounce timer interrupt handler
 void DEBOUNCE_TIMER_IRQHandler (void)
 {
@@ -2376,9 +2391,9 @@ void RPM_COUNTER_IRQHandler (void)
 
 #endif
 
-#if (DRIVER_IRQMASK|AUXINPUT_MASK) & (1<<0)
+#if (DRIVER_IRQMASK|PROBE_IRQ_BIT|AUXINPUT_MASK) & (1<<0)
 
-void EXTI0_IRQHandler (void)
+void EXTI0_IRQHandler(void)
 {
     uint32_t ifg = __HAL_GPIO_EXTI_GET_IT(1<<0);
 
@@ -2386,33 +2401,43 @@ void EXTI0_IRQHandler (void)
         __HAL_GPIO_EXTI_CLEAR_IT(ifg);
 #if CONTROL_MASK & (1<<0)
   #if SAFETY_DOOR_BIT & (1<<0)
-        if(hal.driver_cap.software_debounce) {
-            debounce.door = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.door = debounce_start()))
   #endif
         hal.control.interrupt_callback(systemGetState());
-#elif defined(I2C_STROBE_ENABLE) && I2C_STROBE_BIT & (1<<0)
+#elif LIMIT_MASK & (1<<0)
+        if(!(debounce.limits = debounce_start()))
+            hal.limits.interrupt_callback(limitsGetState());
+#elif PROBE_IRQ_BIT & (1<<0)
+        probe.triggered = On;
+#elif MPG_MODE_BIT && (1<<0)
+        protocol_enqueue_rt_command(mpg_select);
+#elif I2C_STROBE_BIT & (1<<0)
         if(i2c_strobe.callback)
             i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
-#elif LIMIT_MASK & (1<<0)
-        if(hal.driver_cap.software_debounce) {
-            debounce.limits = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
-            hal.limits.interrupt_callback(limitsGetState());
+#elif SPI_IRQ_BIT & (1<<0)
+        if(spi_irq.callback)
+            spi_irq.callback(0, DIGITAL_IN(SPI_IRQ_PORT, SPI_IRQ_PIN) == 0);
 #elif AUXINPUT_MASK & (1<<0)
         ioports_event(ifg);
-#endif
+#elif SPINDLE_INDEX_BIT & (1<<0)
+        uint32_t rpm_count = RPM_COUNTER->CNT;
+        spindle_encoder.timer.last_index = RPM_TIMER_COUNT;
 
+        if(spindle_encoder.counter.index_count && (uint16_t)(rpm_count - (uint16_t)spindle_encoder.counter.last_index) != spindle_encoder.ppr)
+            spindle_encoder.error_count++;
+
+        spindle_encoder.counter.last_index = rpm_count;
+        spindle_encoder.counter.index_count++;
+#elif QEI_SELECT_ENABLED && (QEI_SELECT_BIT & (1<<0))
+        if(!(debounce.qei_select = debounce_start()))
+            qei_select_handler();
+#endif
     }
 }
 
 #endif
 
-#if (DRIVER_IRQMASK|AUXINPUT_MASK) & (1<<1)
+#if (DRIVER_IRQMASK|PROBE_IRQ_BIT|AUXINPUT_MASK) & (1<<1)
 
 void EXTI1_IRQHandler(void)
 {
@@ -2422,29 +2447,43 @@ void EXTI1_IRQHandler(void)
         __HAL_GPIO_EXTI_CLEAR_IT(ifg);
 #if CONTROL_MASK & (1<<1)
   #if SAFETY_DOOR_BIT & (1<<1)
-        if(hal.driver_cap.software_debounce) {
-            debounce.door = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.door = debounce_start()))
   #endif
         hal.control.interrupt_callback(systemGetState());
 #elif LIMIT_MASK & (1<<1)
-        if(hal.driver_cap.software_debounce) {
-            debounce.limits = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.limits = debounce_start()))
             hal.limits.interrupt_callback(limitsGetState());
+#elif PROBE_IRQ_BIT & (1<<1)
+        probe.triggered = On;
+#elif MPG_MODE_BIT && (1<<1)
+        protocol_enqueue_rt_command(mpg_select);
+#elif I2C_STROBE_BIT & (1<<1)
+        if(i2c_strobe.callback)
+            i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
+#elif SPI_IRQ_BIT & (1<<1)
+        if(spi_irq.callback)
+            spi_irq.callback(0, DIGITAL_IN(SPI_IRQ_PORT, SPI_IRQ_PIN) == 0);
 #elif AUXINPUT_MASK & (1<<1)
         ioports_event(ifg);
+#elif SPINDLE_INDEX_BIT & (1<<1)
+        uint32_t rpm_count = RPM_COUNTER->CNT;
+        spindle_encoder.timer.last_index = RPM_TIMER_COUNT;
+
+        if(spindle_encoder.counter.index_count && (uint16_t)(rpm_count - (uint16_t)spindle_encoder.counter.last_index) != spindle_encoder.ppr)
+            spindle_encoder.error_count++;
+
+        spindle_encoder.counter.last_index = rpm_count;
+        spindle_encoder.counter.index_count++;
+#elif QEI_SELECT_ENABLED && (QEI_SELECT_BIT & (1<<1))
+        if(!(debounce.qei_select = debounce_start()))
+            qei_select_handler();
 #endif
     }
 }
 
 #endif
 
-#if (DRIVER_IRQMASK|AUXINPUT_MASK) & (1<<2)
+#if (DRIVER_IRQMASK|PROBE_IRQ_BIT|AUXINPUT_MASK) & (1<<2)
 
 void EXTI2_IRQHandler(void)
 {
@@ -2454,29 +2493,43 @@ void EXTI2_IRQHandler(void)
         __HAL_GPIO_EXTI_CLEAR_IT(ifg);
 #if CONTROL_MASK & (1<<2)
   #if SAFETY_DOOR_BIT & (1<<2)
-        if(hal.driver_cap.software_debounce) {
-            debounce.door = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.door = debounce_start()))
  #endif
         hal.control.interrupt_callback(systemGetState());
 #elif LIMIT_MASK & (1<<2)
-        if(hal.driver_cap.software_debounce) {
-            debounce.limits = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.limits = debounce_start()))
             hal.limits.interrupt_callback(limitsGetState());
+#elif PROBE_IRQ_BIT & (1<<2)
+        probe.triggered = On;
+#elif MPG_MODE_BIT && (1<<2)
+        protocol_enqueue_rt_command(mpg_select);
+#elif I2C_STROBE_BIT & (1<<2)
+        if(i2c_strobe.callback)
+            i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
+#elif SPI_IRQ_BIT & (1<<2)
+        if(spi_irq.callback)
+            spi_irq.callback(0, DIGITAL_IN(SPI_IRQ_PORT, SPI_IRQ_PIN) == 0);
 #elif AUXINPUT_MASK & (1<<2)
         ioports_event(ifg);
+#elif SPINDLE_INDEX_BIT & (1<<2)
+        uint32_t rpm_count = RPM_COUNTER->CNT;
+        spindle_encoder.timer.last_index = RPM_TIMER_COUNT;
+
+        if(spindle_encoder.counter.index_count && (uint16_t)(rpm_count - (uint16_t)spindle_encoder.counter.last_index) != spindle_encoder.ppr)
+            spindle_encoder.error_count++;
+
+        spindle_encoder.counter.last_index = rpm_count;
+        spindle_encoder.counter.index_count++;
+#elif QEI_SELECT_ENABLED && (QEI_SELECT_BIT & (1<<2))
+        if(!(debounce.qei_select = debounce_start()))
+            qei_select_handler();
 #endif
     }
 }
 
 #endif
 
-#if (DRIVER_IRQMASK|AUXINPUT_MASK) & (1<<3)
+#if (DRIVER_IRQMASK|PROBE_IRQ_BIT|AUXINPUT_MASK) & (1<<3)
 
 void EXTI3_IRQHandler(void)
 {
@@ -2486,29 +2539,43 @@ void EXTI3_IRQHandler(void)
         __HAL_GPIO_EXTI_CLEAR_IT(ifg);
 #if CONTROL_MASK & (1<<3)
   #if SAFETY_DOOR_BIT & (1<<3)
-        if(hal.driver_cap.software_debounce) {
-            debounce.door = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.door = debounce_start()))
   #endif
-          hal.control.interrupt_callback(systemGetState());
+        hal.control.interrupt_callback(systemGetState());
 #elif LIMIT_MASK & (1<<3)
-        if(hal.driver_cap.software_debounce) {
-            debounce.limits = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.limits = debounce_start()))
             hal.limits.interrupt_callback(limitsGetState());
+#elif PROBE_IRQ_BIT & (1<<3)
+        probe.triggered = On;
+#elif MPG_MODE_BIT && (1<<3)
+        protocol_enqueue_rt_command(mpg_select);
+#elif I2C_STROBE_BIT & (1<<3)
+        if(i2c_strobe.callback)
+            i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
+#elif SPI_IRQ_BIT & (1<<3)
+        if(spi_irq.callback)
+            spi_irq.callback(0, DIGITAL_IN(SPI_IRQ_PORT, SPI_IRQ_PIN) == 0);
 #elif AUXINPUT_MASK & (1<<3)
         ioports_event(ifg);
+#elif SPINDLE_INDEX_BIT & (1<<3)
+        uint32_t rpm_count = RPM_COUNTER->CNT;
+        spindle_encoder.timer.last_index = RPM_TIMER_COUNT;
+
+        if(spindle_encoder.counter.index_count && (uint16_t)(rpm_count - (uint16_t)spindle_encoder.counter.last_index) != spindle_encoder.ppr)
+            spindle_encoder.error_count++;
+
+        spindle_encoder.counter.last_index = rpm_count;
+        spindle_encoder.counter.index_count++;
+#elif QEI_SELECT_ENABLED && (QEI_SELECT_BIT & (1<<3))
+        if(!(debounce.qei_select = debounce_start()))
+            qei_select_handler();
 #endif
     }
 }
 
 #endif
 
-#if (DRIVER_IRQMASK|AUXINPUT_MASK) & (1<<4)
+#if (DRIVER_IRQMASK|PROBE_IRQ_BIT|AUXINPUT_MASK) & (1<<4)
 
 void EXTI4_IRQHandler(void)
 {
@@ -2518,29 +2585,43 @@ void EXTI4_IRQHandler(void)
         __HAL_GPIO_EXTI_CLEAR_IT(ifg);
 #if CONTROL_MASK & (1<<4)
   #if SAFETY_DOOR_BIT & (1<<4)
-        if(hal.driver_cap.software_debounce) {
-            debounce.door = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.door = debounce_start()))
   #endif
         hal.control.interrupt_callback(systemGetState());
 #elif LIMIT_MASK & (1<<4)
-        if(hal.driver_cap.software_debounce) {
-            debounce.limits = On;
-            DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-            DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-        } else
+        if(!(debounce.limits = debounce_start()))
             hal.limits.interrupt_callback(limitsGetState());
+#elif PROBE_IRQ_BIT & (1<<4)
+        probe.triggered = On;
+#elif MPG_MODE_BIT && (1<<4)
+        protocol_enqueue_rt_command(mpg_select);
+#elif I2C_STROBE_BIT & (1<<4)
+        if(i2c_strobe.callback)
+            i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
+#elif SPI_IRQ_BIT & (1<<4)
+        if(spi_irq.callback)
+            spi_irq.callback(0, DIGITAL_IN(SPI_IRQ_PORT, SPI_IRQ_PIN) == 0);
 #elif AUXINPUT_MASK & (1<<4)
         ioports_event(ifg);
+#elif SPINDLE_INDEX_BIT & (1<<4)
+        uint32_t rpm_count = RPM_COUNTER->CNT;
+        spindle_encoder.timer.last_index = RPM_TIMER_COUNT;
+
+        if(spindle_encoder.counter.index_count && (uint16_t)(rpm_count - (uint16_t)spindle_encoder.counter.last_index) != spindle_encoder.ppr)
+            spindle_encoder.error_count++;
+
+        spindle_encoder.counter.last_index = rpm_count;
+        spindle_encoder.counter.index_count++;
+#elif QEI_SELECT_ENABLED && (QEI_SELECT_BIT & (1<<4))
+        if(!(debounce.qei_select = debounce_start()))
+            qei_select_handler();
 #endif
     }
 }
 
 #endif
 
-#if (DRIVER_IRQMASK|AUXINPUT_MASK) & (0x03E0)
+#if ((DRIVER_IRQMASK|PROBE_IRQ_BIT|AUXINPUT_MASK) & 0x03E0)
 
 void EXTI9_5_IRQHandler(void)
 {
@@ -2549,27 +2630,53 @@ void EXTI9_5_IRQHandler(void)
     if(ifg) {
         __HAL_GPIO_EXTI_CLEAR_IT(ifg);
 
+#if SPI_IRQ_BIT & 0x03E0
+        if((ifg & SPI_IRQ_BIT) && spi_irq.callback)
+            spi_irq.callback(0, DIGITAL_IN(SPI_IRQ_PORT, SPI_IRQ_PIN) == 0);
+#endif
+#if SPINDLE_INDEX_BIT & 0x03E0
+        if(ifg & SPINDLE_INDEX_BIT) {
+            uint32_t rpm_count = RPM_COUNTER->CNT;
+            spindle_encoder.timer.last_index = RPM_TIMER_COUNT;
+
+            if(spindle_encoder.counter.index_count && (uint16_t)(rpm_count - (uint16_t)spindle_encoder.counter.last_index) != spindle_encoder.ppr)
+                spindle_encoder.error_count++;
+
+            spindle_encoder.counter.last_index = rpm_count;
+            spindle_encoder.counter.index_count++;
+        }
+#endif
+#if QEI_SELECT_ENABLED && (QEI_SELECT_BIT & 0x03E0)
+        if(ifg & QEI_SELECT_BIT) {
+            if(!(debounce.qei_select = debounce_start()))
+                qei_select_handler();
+        }
+#endif
 #if CONTROL_MASK & 0x03E0
         if(ifg & CONTROL_MASK) {
   #if SAFETY_DOOR_BIT & 0x03E0
-            if((ifg & SAFETY_DOOR_BIT) && hal.driver_cap.software_debounce) {
-                debounce.door = On;
-                DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-                DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-            } else
+            if(!(ifg & SAFETY_DOOR_BIT) || !(debounce.door = debounce_start()))
   #endif
-                hal.control.interrupt_callback(systemGetState());
+            hal.control.interrupt_callback(systemGetState());
         }
 #endif
 #if LIMIT_MASK & 0x03E0
         if(ifg & LIMIT_MASK) {
-            if(hal.driver_cap.software_debounce) {
-                debounce.limits = On;
-                DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-                DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-            } else
+            if(!(debounce.limits = debounce_start()))
                 hal.limits.interrupt_callback(limitsGetState());
         }
+#endif
+#if PROBE_IRQ_BIT & 0x03E0
+        if(ifg & PROBE_IRQ_BIT)
+            probe.triggered = On;
+#endif
+#if I2C_STROBE_BIT & 0x03E0
+        if((ifg & I2C_STROBE_BIT) && i2c_strobe.callback)
+            i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
+#endif
+#if MPG_MODE_BIT & 0x03E0
+        if(ifg & MPG_MODE_BIT)
+            protocol_enqueue_rt_command(mpg_select);
 #endif
 #if AUXINPUT_MASK & 0x03E0
         if(ifg & aux_irq)
@@ -2580,7 +2687,7 @@ void EXTI9_5_IRQHandler(void)
 
 #endif
 
-#if (DRIVER_IRQMASK|AUXINPUT_MASK) & (0xFC00)
+#if (DRIVER_IRQMASK|PROBE_IRQ_BIT|AUXINPUT_MASK) & (0xFC00)
 
 void EXTI15_10_IRQHandler(void)
 {
@@ -2589,42 +2696,51 @@ void EXTI15_10_IRQHandler(void)
     if(ifg) {
         __HAL_GPIO_EXTI_CLEAR_IT(ifg);
 
-#ifdef SPINDLE_INDEX_PORT
+#if SPI_IRQ_BIT & 0xFC00
+        if((ifg & SPI_IRQ_BIT) && spi_irq.callback)
+            spi_irq.callback(0, DIGITAL_IN(SPI_IRQ_PORT, SPI_IRQ_PIN) == 0);
+#endif
+#if SPINDLE_INDEX_BIT & 0xFC00
         if(ifg & SPINDLE_INDEX_BIT) {
+            uint32_t rpm_count = RPM_COUNTER->CNT;
+            spindle_encoder.timer.last_index = RPM_TIMER_COUNT;
 
-            if(spindle_encoder.counter.index_count && (uint16_t)(RPM_COUNTER->CNT - (uint16_t)spindle_encoder.counter.last_index) != spindle_encoder.ppr)
+            if(spindle_encoder.counter.index_count && (uint16_t)(rpm_count - (uint16_t)spindle_encoder.counter.last_index) != spindle_encoder.ppr)
                 spindle_encoder.error_count++;
 
-            spindle_encoder.counter.last_index = RPM_COUNTER->CNT;
-            spindle_encoder.timer.last_index = RPM_TIMER->CNT;
+            spindle_encoder.counter.last_index = rpm_count;
             spindle_encoder.counter.index_count++;
         }
+#endif
+#if QEI_ENABLE && ((QEI_A_BIT|QEI_B_BIT) & 0xFC00)
+        if(ifg & (QEI_A_BIT|QEI_B_BIT))
+            qei_update();
 #endif
 #if CONTROL_MASK & 0xFC00
         if(ifg & CONTROL_MASK) {
   #if SAFETY_DOOR_BIT & 0xFC00
-            if((ifg & SAFETY_DOOR_BIT) && hal.driver_cap.software_debounce) {
-                debounce.door = On;
-                DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-                DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-            } else
+            if(!(ifg & SAFETY_DOOR_BIT) || !(debounce.door = debounce_start()))
   #endif
-                hal.control.interrupt_callback(systemGetState());
+            hal.control.interrupt_callback(systemGetState());
         }
 #endif
 #if LIMIT_MASK & 0xFC00
         if(ifg & LIMIT_MASK) {
-            if(hal.driver_cap.software_debounce) {
-                debounce.limits = On;
-                DEBOUNCE_TIMER->EGR = TIM_EGR_UG;
-                DEBOUNCE_TIMER->CR1 |= TIM_CR1_CEN; // Start debounce timer (40ms)
-            } else
+            if(!(debounce.limits = debounce_start()))
                 hal.limits.interrupt_callback(limitsGetState());
         }
 #endif
-#if I2C_STROBE_ENABLE && (I2C_STROBE_BIT & 0x03E0)
+#if PROBE_IRQ_BIT & 0xFC00
+        if(ifg & PROBE_IRQ_BIT)
+            probe.triggered = On;
+#endif
+#if I2C_STROBE_BIT & 0xFC00
         if((ifg & I2C_STROBE_BIT) && i2c_strobe.callback)
             i2c_strobe.callback(0, DIGITAL_IN(I2C_STROBE_PORT, I2C_STROBE_PIN) == 0);
+#endif
+#if MPG_MODE_BIT & 0xFC00
+        if(ifg & MPG_MODE_BIT)
+            protocol_enqueue_rt_command(mpg_select);
 #endif
 #if AUXINPUT_MASK & 0xFC00
         if(ifg & aux_irq)
