@@ -115,7 +115,11 @@ static void spindle_set_speed (uint_fast16_t pwm_value);
 static periph_signal_t *periph_pins = NULL;
 
 static input_signal_t inputpin[] = {
+#if ESTOP_ENABLE
+    { .id = Input_EStop,          .port = RESET_PORT,         .pin = RESET_PIN,           .group = PinGroup_Control },
+#else
     { .id = Input_Reset,          .port = RESET_PORT,         .pin = RESET_PIN,           .group = PinGroup_Control },
+#endif
     { .id = Input_FeedHold,       .port = FEED_HOLD_PORT,     .pin = FEED_HOLD_PIN,       .group = PinGroup_Control },
     { .id = Input_CycleStart,     .port = CYCLE_START_PORT,   .pin = CYCLE_START_PIN,     .group = PinGroup_Control },
 #if SAFETY_DOOR_ENABLE
@@ -963,11 +967,11 @@ static control_signals_t systemGetState (void)
     signals.mask = settings.control_invert.mask;
 
 #if CONTROL_INMODE == GPIO_SINGLE
-#if ESTOP_ENABLE
-    signals.e_stop = DIGITAL_IN(CONTROL_PORT_ESTOP, RESET_BIT);
-#else
+  #if ESTOP_ENABLE
+    signals.e_stop = DIGITAL_IN(RESET_PORT, RESET_BIT);
+  #else
     signals.reset = DIGITAL_IN(RESET_PORT, RESET_BIT);
-#endif
+  #endif
     signals.feed_hold = DIGITAL_IN(FEED_HOLD_PORT, FEED_HOLD_BIT);
     signals.cycle_start = DIGITAL_IN(CYCLE_START_PORT, CYCLE_START_BIT);
   #ifdef SAFETY_DOOR_PIN
@@ -975,11 +979,11 @@ static control_signals_t systemGetState (void)
   #endif
 #elif CONTROL_INMODE == GPIO_MAP
     uint32_t bits = CONTROL_PORT->IDR;
-#if ESTOP_ENABLE
+  #if ESTOP_ENABLE
     signals.e_stop = !!(bits & RESET_BIT);
-#else
+  #else
     signals.reset = !!(bits & RESET_BIT);
-#endif
+  #endif
     signals.feed_hold = !!(bits & FEED_HOLD_BIT);
     signals.cycle_start = !!(bits & CYCLE_START_BIT);
   #ifdef SAFETY_DOOR_PIN
@@ -1499,6 +1503,11 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
             }
 
             switch(input->id) {
+
+                case Input_EStop:
+                    pullup = !settings->control_disable_pullup.e_stop;
+                    input->irq_mode = control_fei.e_stop ? IRQ_Mode_Falling : IRQ_Mode_Rising;
+                    break;
 
                 case Input_Reset:
                     pullup = !settings->control_disable_pullup.reset;
@@ -2102,7 +2111,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "230702";
+    hal.driver_version = "230711";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2194,7 +2203,7 @@ bool driver_init (void)
         .get_pwm = spindleGetPWM,
         .update_pwm = spindle_set_speed,
   #if PPI_ENABLE
-        .pulse_on = spindlePulseOn,
+        .pulse_on = spindlePulseOn,s
   #endif
  #else
         .type = SpindleType_Basic,
@@ -2218,6 +2227,7 @@ bool driver_init (void)
 
 #if ESTOP_ENABLE
     hal.signals_cap.e_stop = On;
+    hal.signals_cap.reset = Off;
 #endif
 #ifdef SAFETY_DOOR_PIN
     hal.signals_cap.safety_door_ajar = On;
