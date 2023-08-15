@@ -352,7 +352,19 @@ static output_signal_t outputpin[] = {
     { .id = Output_Aux2,               .port = AUXOUTPUT2_PORT,        .pin = AUXOUTPUT2_PIN,        .group = PinGroup_AuxOutput },
 #endif
 #ifdef AUXOUTPUT3_PORT
-    { .id = Output_Aux3,               .port = AUXOUTPUT3_PORT,        .pin = AUXOUTPUT3_PIN,        .group = PinGroup_AuxOutput }
+    { .id = Output_Aux3,               .port = AUXOUTPUT3_PORT,        .pin = AUXOUTPUT3_PIN,        .group = PinGroup_AuxOutput },
+#endif
+#ifdef AUXOUTPUT4_PORT
+    { .id = Output_Aux4,               .port = AUXOUTPUT4_PORT,        .pin = AUXOUTPUT4_PIN,        .group = PinGroup_AuxOutput },
+#endif
+#ifdef AUXOUTPUT5_PORT
+    { .id = Output_Aux5,               .port = AUXOUTPUT5_PORT,        .pin = AUXOUTPUT5_PIN,        .group = PinGroup_AuxOutput },
+#endif
+#ifdef AUXOUTPUT6_PORT
+    { .id = Output_Aux6,               .port = AUXOUTPUT6_PORT,        .pin = AUXOUTPUT6_PIN,        .group = PinGroup_AuxOutput },
+#endif
+#ifdef AUXOUTPUT7_PORT
+    { .id = Output_Aux7,               .port = AUXOUTPUT7_PORT,        .pin = AUXOUTPUT7_PIN,        .group = PinGroup_AuxOutput }
 #endif
 };
 /*
@@ -1019,7 +1031,7 @@ static void probeConfigure (bool is_probe_away, bool probing)
 }
 
 // Returns the probe connected and triggered pin states.
-probe_state_t probeGetState (void)
+static probe_state_t probeGetState (void)
 {
     probe_state_t state = {0};
 
@@ -2203,7 +2215,7 @@ bool driver_init (void)
         .get_pwm = spindleGetPWM,
         .update_pwm = spindle_set_speed,
   #if PPI_ENABLE
-        .pulse_on = spindlePulseOn,s
+        .pulse_on = spindlePulseOn
   #endif
  #else
         .type = SpindleType_Basic,
