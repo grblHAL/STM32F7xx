@@ -367,16 +367,7 @@ static output_signal_t outputpin[] = {
     { .id = Output_Aux7,               .port = AUXOUTPUT7_PORT,        .pin = AUXOUTPUT7_PIN,        .group = PinGroup_AuxOutput }
 #endif
 };
-/*
-static const output_signal_t peripin[] = {
-#ifdef UART_TX_PIN
-    { .id = Output_TX,           .port = UART_PORT,                .pin = UART_TX_PIN,              .group = PinGroup_UART },
-#endif
-#ifdef UART_RX_PIN
-    { .id = Input_RX,            .port = UART_PORT,                .pin = UART_RX_PIN,              .group = PinGroup_UART },
-#endif
-};
-*/
+
 extern __IO uint32_t uwTick;
 static uint32_t pulse_length, pulse_delay, aux_irq = 0;
 static bool IOInitDone = false, rtc_started = false;
@@ -691,13 +682,13 @@ inline static __attribute__((always_inline)) void stepperSetDirOutputs (axes_sig
     DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | dir_outmap[dir_outbits.value];
  #ifdef GANGING_ENABLED
   #ifdef X2_DIRECTION_PIN
-    DIGITAL_OUT(X2_DIRECTION_PORT, X2_DIRECTION_PIN, (dir_outbits.x ^ settings.steppers.dir_invert.x) ^ settings.steppers.ganged_dir_invert.mask.x;
+    DIGITAL_OUT(X2_DIRECTION_PORT, X2_DIRECTION_PIN, (dir_outbits.x ^ settings.steppers.dir_invert.x) ^ settings.steppers.ganged_dir_invert.x;
   #endif
   #ifdef Y2_DIRECTION_PIN
-      DIGITAL_OUT(Y2_DIRECTION_PORT, Y2_DIRECTION_PIN, (dir_outbits.y ^ settings.steppers.dir_invert.y) ^ settings.steppers.ganged_dir_invert.mask.y);
+      DIGITAL_OUT(Y2_DIRECTION_PORT, Y2_DIRECTION_PIN, (dir_outbits.y ^ settings.steppers.dir_invert.y) ^ settings.steppers.ganged_dir_invert.y);
   #endif
   #ifdef Z2_DIRECTION_PIN
-      DIGITAL_OUT(Z2_DIRECTION_PORT, Z2_DIRECTION_PIN, (dir_outbits.z ^ settings.steppers.dir_invert.z) ^ settings.steppers.ganged_dir_invert.mask.z;
+      DIGITAL_OUT(Z2_DIRECTION_PORT, Z2_DIRECTION_PIN, (dir_outbits.z ^ settings.steppers.dir_invert.z) ^ settings.steppers.ganged_dir_invert.z;
   #endif
  #endif
 #else
@@ -1008,7 +999,7 @@ static control_signals_t systemGetState (void)
   #endif
   #if ESTOP_ENABLE
     signals.e_stop = signals.reset;
-    signals.reset = settings.control_invert.mask.reset;
+    signals.reset = settings.control_invert.reset;
   #endif
 #endif
 
@@ -2123,7 +2114,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "230711";
+    hal.driver_version = "230816";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2221,17 +2212,17 @@ bool driver_init (void)
         .type = SpindleType_Basic,
  #endif
  #ifdef SPINDLE_DIRECTION_PIN
-       .cap.direction = On,
+        .cap.direction = On,
  #endif
         .set_state = spindleSetState,
         .get_state = spindleGetState
     };
 
-#ifdef SPINDLE_PWM_TIMER_N
+ #ifdef SPINDLE_PWM_TIMER_N
     spindle_id = spindle_register(&spindle, "PWM");
-#else
+ #else
     spindle_id = spindle_register(&spindle, "Basic");
-#endif
+ #endif
 
 #endif // DRIVER_SPINDLE
 
