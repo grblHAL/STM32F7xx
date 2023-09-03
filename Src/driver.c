@@ -858,16 +858,16 @@ static void stepperPulseStartSynchronized (stepper_t *stepper)
 #endif
 
 // Enable/disable limit pins interrupt
-static void limitsEnable (bool on, bool homing)
+static void limitsEnable (bool on, axes_signals_t homing_cycle)
 {
-    if(on && settings.limits.flags.hard_enabled) {
+    if(on && homing_cycle.mask == 0) {
         EXTI->PR |= LIMIT_MASK;     // Clear any pending limit interrupts
         EXTI->IMR |= LIMIT_MASK;    // and enable
     } else
         EXTI->IMR &= ~LIMIT_MASK;
 
 #if TRINAMIC_ENABLE
-    trinamic_homing(homing);
+    trinamic_homing(homing_cycle.mask != 0);
 #endif
 }
 
@@ -1673,7 +1673,7 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
         }
     }
 
-    hal.limits.enable(settings->limits.flags.hard_enabled, false);
+    hal.limits.enable(settings->limits.flags.hard_enabled, (axes_signals_t){0});
 }
 
 static char *port2char (GPIO_TypeDef *port)
@@ -2114,7 +2114,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "230816";
+    hal.driver_version = "230828";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2236,6 +2236,7 @@ bool driver_init (void)
     hal.signals_cap.safety_door_ajar = On;
 #endif
     hal.limits_cap = get_limits_cap();
+    hal.home_cap = get_home_cap();
 #if SPINDLE_SYNC_ENABLE
     hal.driver_cap.spindle_sync = On;
 #endif
