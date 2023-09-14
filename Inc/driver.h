@@ -352,6 +352,7 @@ typedef struct {
 
 bool driver_init (void);
 void Driver_IncTick (void);
+void gpio_irq_enable (const input_signal_t *input, pin_irq_mode_t irq_mode);
 #ifdef HAS_IOPORTS
 void ioports_init(pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_outputs);
 void ioports_event (uint32_t bit);

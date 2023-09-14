@@ -371,6 +371,7 @@ static output_signal_t outputpin[] = {
 extern __IO uint32_t uwTick;
 static uint32_t pulse_length, pulse_delay, aux_irq = 0;
 static bool IOInitDone = false, rtc_started = false;
+static pin_group_pins_t limit_inputs = {0};
 static axes_signals_t next_step_outbits;
 static delay_t delay = { .ms = 1, .callback = NULL }; // NOTE: initial ms set to 1 for "resetting" systick timer on startup
 static debounce_t debounce;
@@ -860,15 +861,20 @@ static void stepperPulseStartSynchronized (stepper_t *stepper)
 // Enable/disable limit pins interrupt
 static void limitsEnable (bool on, axes_signals_t homing_cycle)
 {
-    if(on && homing_cycle.mask == 0) {
-        EXTI->PR |= LIMIT_MASK;     // Clear any pending limit interrupts
-        EXTI->IMR |= LIMIT_MASK;    // and enable
-    } else
-        EXTI->IMR &= ~LIMIT_MASK;
+    bool disable = !on;
+    axes_signals_t pin;
+    input_signal_t *limit;
+    uint_fast8_t idx = limit_inputs.n_pins;
+    limit_signals_t homing_source = xbar_get_homing_source_from_cycle(homing_cycle);
 
-#if TRINAMIC_ENABLE
-    trinamic_homing(homing_cycle.mask != 0);
-#endif
+    do {
+        limit = &limit_inputs.pins.inputs[--idx];
+        if(on && homing_cycle.mask) {
+            pin = xbar_fn_to_axismask(limit->id);
+            disable = limit->group == PinGroup_Limit ? (pin.mask & homing_source.min.mask) : (pin.mask & homing_source.max.mask);
+        }
+        gpio_irq_enable(limit, disable ? IRQ_Mode_None : limit->irq_mode);
+    } while(idx);
 }
 
 // Returns limit state as an axes_signals_t variable.
@@ -1389,6 +1395,24 @@ static uint_fast16_t valueSetAtomic (volatile uint_fast16_t *ptr, uint_fast16_t 
 static uint32_t getElapsedTicks (void)
 {
     return uwTick;
+}
+
+void gpio_irq_enable (const input_signal_t *input, pin_irq_mode_t irq_mode)
+{
+    if(irq_mode == IRQ_Mode_Rising) {
+        EXTI->RTSR |= input->bit;
+        EXTI->FTSR &= ~input->bit;
+    } else if(irq_mode == IRQ_Mode_Falling) {
+        EXTI->RTSR &= ~input->bit;
+        EXTI->FTSR |= input->bit;
+    } else if(irq_mode == IRQ_Mode_Change) {
+        EXTI->RTSR |= input->bit;
+        EXTI->FTSR |= input->bit;
+    } else
+        EXTI->IMR &= ~input->bit;   // Disable pin interrupt
+
+    if(irq_mode != IRQ_Mode_None)
+        EXTI->IMR |= input->bit;    // Enable pin interrupt
 }
 
 // Configures peripherals when settings are initialized or changed
@@ -2114,7 +2138,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "230828";
+    hal.driver_version = "230904";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2265,6 +2289,10 @@ bool driver_init (void)
             input->bit = 1 << input->pin;
             input->cap.pull_mode = PullMode_UpDown;
             input->cap.irq_mode = (input->bit & DRIVER_IRQMASK) ? IRQ_Mode_None : IRQ_Mode_Edges;
+        } else if(input->group & (PinGroup_Limit|PinGroup_LimitMax)) {
+            if(limit_inputs.pins.inputs == NULL)
+                limit_inputs.pins.inputs = input;
+            limit_inputs.n_pins++;
         }
     }
 
