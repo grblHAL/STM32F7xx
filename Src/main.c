@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2021-2022 Terje Io
+  Copyright (c) 2021-2023 Terje Io
   Some parts (C) COPYRIGHT STMicroelectronics - code created by IDE
 
   Grbl is free software: you can redistribute it and/or modify
@@ -31,6 +31,11 @@ int main(void)
 {
     HAL_Init();
     SystemClock_Config();
+
+    DWT->LAR = 0xC5ACCE55;
+    DWT->CTRL |= 1;
+    CoreDebug->DEMCR |= 0x01000000;
+    DWT->LAR = 0;
 
     grbl_enter();
 }
