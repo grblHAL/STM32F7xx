@@ -32,10 +32,13 @@ int main(void)
     HAL_Init();
     SystemClock_Config();
 
-    DWT->LAR = 0xC5ACCE55;
-    DWT->CTRL |= 1;
-    CoreDebug->DEMCR |= 0x01000000;
-    DWT->LAR = 0;
+    if(!(CoreDebug->DEMCR & CoreDebug_DEMCR_TRCENA_Msk)) {
+        CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+        DWT->LAR = 0xC5ACCE55;
+        DWT->CYCCNT = 0;
+        DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+        DWT->LAR = 0;
+    }
 
     grbl_enter();
 }

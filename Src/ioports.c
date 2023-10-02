@@ -391,6 +391,8 @@ void ioports_init (pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_outputs)
     } else
         hal.port.set_pin_description = NULL;
 
+#if PLASMA_ENABLE
+
     analog_in.function = Input_Analog_Aux0;
     analog_in.group = PinGroup_AuxInput;
     analog_in.pin = 3;
@@ -419,4 +421,6 @@ void ioports_init (pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_outputs)
         on_enumerate_pins = hal.enumerate_pins;
         hal.enumerate_pins = enumerate_pins;
     }
+
+#endif // PLASMA_ENABLE
 }
