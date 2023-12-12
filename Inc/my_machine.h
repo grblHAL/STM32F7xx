@@ -3,7 +3,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2021-2022 Terje Io
+  Copyright (c) 2021-2023 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -39,7 +39,17 @@
 //#define USB_SERIAL_CDC       1 // Serial communication via native USB.
 #endif
 //#define SAFETY_DOOR_ENABLE   1 // Enable safety door input.
-//#define VFD_ENABLE           1 // Set to 1 or 2 for Huanyang VFD spindle. More here https://github.com/grblHAL/Plugins_spindle
+// Spindle selection:
+// Up to four specific spindle drivers can be instantiated at a time
+// depending on N_SPINDLE and N_SYS_SPINDLE definitions in grbl/config.h.
+// If none are specified the default PWM spindle is instantiated.
+// Spindle definitions can be found in grbl/spindle_control.h.
+// More here https://github.com/grblHAL/Plugins_spindle
+//#define SPINDLE0_ENABLE      SPINDLE_HUANYANG1
+//#define SPINDLE1_ENABLE      SPINDLE_PWM0
+//#define SPINDLE2_ENABLE      SPINDLE_NONE
+//#define SPINDLE3_ENABLE      SPINDLE_NONE
+// **********************
 //#define MODBUS_ENABLE        1 // Set to 1 for auto direction, 2 for direction signal on auxillary output pin.
 //#define WEBUI_ENABLE         3 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
 //#define WEBUI_AUTH_ENABLE    1 // Enable ESP3D-WEBUI authentication.

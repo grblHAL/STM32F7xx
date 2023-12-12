@@ -34,8 +34,6 @@
 #define I2C_PORT        1   // GPIOB: SCL = 8, SDA = 9
 #define SPI_PORT        3   // GPIOC: SCK = 10, MISO - 11, MOSI - 12
 #define IS_NUCLEO_BOB
-#define HAS_IOPORTS
-#define VARIABLE_SPINDLE // Comment out to disable variable spindle
 
 // Define stepper driver enable/disable output pin.
 #define STEPPERS_ENABLE_PORT   GPIOF
@@ -65,7 +63,7 @@
 #define X_LIMIT_PIN         15
 #define Y_LIMIT_PORT        GPIOD
 #define Y_LIMIT_PIN         14
-#ifdef VARIABLE_SPINDLE
+#if DRIVER_SPINDLE_PWM_ENABLE
   #define Z_LIMIT_PORT      GPIOA
   #define Z_LIMIT_PIN       6
 #else
@@ -144,21 +142,33 @@
 #endif
 #endif
 
-// Define spindle enable and spindle direction output pins.
-#ifdef VARIABLE_SPINDLE
-  #define SPINDLE_ENABLE_PORT   GPIOA // on morpho header
-  #define SPINDLE_ENABLE_PIN    15
-#else
-  #define SPINDLE_ENABLE_PORT   GPIOA
-  #define SPINDLE_ENABLE_PIN    6
-#endif
-#define SPINDLE_DIRECTION_PORT  GPIOA
-#define SPINDLE_DIRECTION_PIN   5
+// Define driver spindle pins
 
-// Define spindle PWM output pin.
-#ifdef VARIABLE_SPINDLE
+#if DRIVER_SPINDLE_PWM_ENABLE
 #define SPINDLE_PWM_PORT_BASE   GPIOB_BASE
 #define SPINDLE_PWM_PIN         0
+#else
+#define AUXOUTPUT4_PORT         GPIOB
+#define AUXOUTPUT4_PIN          0
+#endif
+
+#if DRIVER_SPINDLE_DIR_ENABLE
+#define SPINDLE_DIRECTION_PORT  GPIOA
+#define SPINDLE_DIRECTION_PIN   5
+#else
+#define AUXOUTPUT5_PORT         GPIOA
+#define AUXOUTPUT5_PIN          5
+#endif
+
+#if DRIVER_SPINDLE_PWM_ENABLE
+#define SPINDLE_ENABLE_PORT     GPIOA // on morpho header
+#define SPINDLE_ENABLE_PIN      15
+#elif DRIVER_SPINDLE_ENABLE
+#define SPINDLE_ENABLE_PORT     GPIOA
+#define SPINDLE_ENABLE_PIN      6
+#else
+#define AUXOUTPUT2_PORT         GPIOA
+#define AUXOUTPUT2_PIN          6
 #endif
 
 // Define flood and mist coolant enable output pins.
@@ -188,20 +198,19 @@
 #define PROBE_PORT              GPIOF
 #define PROBE_PIN               10
 
-
 #if SDCARD_ENABLE
 //#define SD_CS_PORT              GPIOC
 //#define SD_CS_PIN               8
 #define SDCARD_SDIO             1
 #endif
-/*
+
 #define AUXINPUT0_PORT          GPIOE
 #define AUXINPUT0_PIN           15
 #define AUXINPUT1_PORT          GPIOD
 #define AUXINPUT1_PIN           1
 #define AUXINPUT2_PORT          GPIOF
 #define AUXINPUT2_PIN           2
-*/
+
 #define AUXOUTPUT0_PORT         GPIOB
 #define AUXOUTPUT0_PIN          11
 #define AUXOUTPUT1_PORT         GPIOB
@@ -210,12 +219,12 @@
 #define AUXOUTPUT2_PIN          2
 #define AUXOUTPUT3_PORT         GPIOF
 #define AUXOUTPUT3_PIN          0
-
+/*
 #define AUXOUTPUT4_PORT          GPIOE
 #define AUXOUTPUT4_PIN           15
 #define AUXOUTPUT5_PORT          GPIOD
 #define AUXOUTPUT5_PIN           1
 #define AUXOUTPUT6_PORT          GPIOF
 #define AUXOUTPUT6_PIN           2
-
+*/
 /**/
