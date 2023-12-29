@@ -184,13 +184,6 @@
 #define FEED_HOLD_PIN           0
 #define CYCLE_START_PORT        GPIOF
 #define CYCLE_START_PIN         4
-#if SAFETY_DOOR_ENABLE
-#if N_ABC_MOTORS
-#error "Safety door cannot be enabled when > 3 motors are defined."
-#endif
-#define SAFETY_DOOR_PORT        GPIOB
-#define SAFETY_DOOR_PIN         10
-#endif
 
 #define CONTROL_INMODE          GPIO_SINGLE
 
@@ -210,6 +203,10 @@
 #define AUXINPUT1_PIN           1
 #define AUXINPUT2_PORT          GPIOF
 #define AUXINPUT2_PIN           2
+#if N_ABC_MOTORS == 0
+#define AUXINPUT3_PORT          GPIOB
+#define AUXINPUT3_PIN           10
+#endif
 
 #define AUXOUTPUT0_PORT         GPIOB
 #define AUXOUTPUT0_PIN          11
@@ -227,4 +224,23 @@
 #define AUXOUTPUT6_PORT          GPIOF
 #define AUXOUTPUT6_PIN           2
 */
+
+#if SAFETY_DOOR_ENABLE
+#if N_ABC_MOTORS
+#error "Safety door cannot be enabled when > 3 motors are defined."
+#endif
+#define SAFETY_DOOR_PORT        AUXINPUT3_PORT
+#define SAFETY_DOOR_PIN         AUXINPUT3_PIN
+#endif
+
+#if MOTOR_FAULT_ENABLE
+#define MOTOR_FAULT_PORT        AUXINPUT1_PORT
+#define MOTOR_FAULT_PIN         AUXINPUT1_PIN
+#endif
+
+#if MOTOR_WARNING_ENABLE
+#define MOTOR_WARNING_PORT      AUXINPUT2_PORT
+#define MOTOR_WARNING_PIN       AUXINPUT2_PIN
+#endif
+
 /**/
