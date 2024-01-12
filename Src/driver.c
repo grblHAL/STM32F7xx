@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2019-2023 Terje Io
+  Copyright (c) 2019-2024 Terje Io
 
   Grbl is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -1115,14 +1115,17 @@ static control_signals_t systemGetState (void)
     if(aux_ctrl[AuxCtrl_SafetyDoor].debouncing)
         signals.safety_door_ajar = !settings.control_invert.safety_door_ajar;
     else
-        signals.safety_door_ajar = DIGITAL_IN(SAFETY_DOOR_PORT, 1 << SAFETY_DOOR_PIN);
+        signals.safety_door_ajar = DIGITAL_IN(SAFETY_DOOR_PORT, SAFETY_DOOR_PIN);
   #endif
   #ifdef MOTOR_FAULT_PIN
-    signals.motor_fault = DIGITAL_IN(MOTOR_FAULT_PORT, 1 << MOTOR_FAULT_PIN);
+    signals.motor_fault = DIGITAL_IN(MOTOR_FAULT_PORT, MOTOR_FAULT_PIN);
   #endif
   #ifdef MOTOR_WARNING_PIN
-    signals.motor_warning = DIGITAL_IN(MOTOR_WARNING_PORT, 1 << MOTOR_WARNING_PIN);
+    signals.motor_warning = DIGITAL_IN(MOTOR_WARNING_PORT, MOTOR_WARNING_PIN);
   #endif
+
+    if(settings.control_invert.mask)
+        signals.value ^= settings.control_invert.mask;
 
   #if AUX_CONTROLS_SCAN
     uint_fast8_t i;
@@ -1135,10 +1138,11 @@ static control_signals_t systemGetState (void)
     }
   #endif
 
-#endif // AUX_CONTROLS_ENABLED
-
+#else
     if(settings.control_invert.mask)
         signals.value ^= settings.control_invert.mask;
+
+#endif // AUX_CONTROLS_ENABLED
 
     return signals;
 }
@@ -1148,38 +1152,72 @@ static control_signals_t systemGetState (void)
 static void aux_irq_handler (uint8_t port, bool state)
 {
     uint_fast8_t i;
-    control_signals_t signals = systemGetState();
+    control_signals_t signals = {0};
 
     for(i = 0; i < AuxCtrl_NumEntries; i++) {
         if(aux_ctrl[i].port == port) {
             if(!aux_ctrl[i].debouncing) {
+                if(i == AuxCtrl_SafetyDoor) {
+                    if((debounce.door = aux_ctrl[i].debouncing = debounce_start()))
+                        break;
+                }
                 signals.mask |= aux_ctrl[i].cap.mask;
-                if(i == AuxCtrl_SafetyDoor)
-                    debounce.door = aux_ctrl[i].debouncing = debounce_start();
+                if(aux_ctrl[i].irq_mode == IRQ_Mode_Change)
+                    signals.deasserted = hal.port.wait_on_input(Port_Digital, aux_ctrl[i].port, WaitMode_Immediate, 0.0f) == 0;
             }
+            break;
         }
     }
 
-    if(signals.mask)
+    if(signals.mask) {
+        if(!signals.deasserted)
+            signals.mask |= systemGetState().mask;
         hal.control.interrupt_callback(signals);
+    }
 }
 
-bool aux_claim (xbar_t *properties, uint8_t port, void *data)
+static bool aux_attach (xbar_t *properties, aux_ctrl_t *aux_ctrl)
 {
+    bool ok;
+    uint_fast8_t i = sizeof(inputpin) / sizeof(input_signal_t);
+
+    do {
+        i--;
+        if((ok = (void *)inputpin[i].port == properties->port && inputpin[i].pin == properties->pin)) {
+            inputpin[i].aux_ctrl = aux_ctrl;
+            break;
+        }
+    } while(i);
+
+    return ok;
+}
+
+static bool aux_claim (xbar_t *properties, uint8_t port, void *data)
+{
+    bool ok;
+
     ((aux_ctrl_t *)data)->port = port;
 
-    return ioport_claim(Port_Digital, Port_Input, &((aux_ctrl_t *)data)->port, xbar_fn_to_pinname(((aux_ctrl_t *)data)->function));
+    if((ok = ioport_claim(Port_Digital, Port_Input, &((aux_ctrl_t *)data)->port, xbar_fn_to_pinname(((aux_ctrl_t *)data)->function))))
+        aux_attach(properties, (aux_ctrl_t *)data);
+
+    return ok;
 }
 
-static bool aux_claim_explicit (aux_ctrl_t *aux)
+#if AUX_CONTROLS_XMAP
+
+static bool aux_claim_explicit (aux_ctrl_t *aux_ctrl)
 {
-    if((aux->enabled = aux->port != 0xFF && ioport_claim(Port_Digital, Port_Input, &aux->port, xbar_fn_to_pinname(aux->function))))
-        hal.signals_cap.mask |= aux->cap.mask;
-    else
-        aux->port = 0xFF;
+    if((aux_ctrl->enabled = aux_ctrl->port != 0xFF && ioport_claim(Port_Digital, Port_Input, &aux_ctrl->port, xbar_fn_to_pinname(aux_ctrl->function)))) {
+        hal.signals_cap.mask |= aux_ctrl->cap.mask;
+        aux_attach(hal.port.get_pin_info(Port_Digital, Port_Input, aux_ctrl->port), aux_ctrl);
+    } else
+        aux_ctrl->port = 0xFF;
 
-    return aux->enabled;
+    return aux_ctrl->enabled;
 }
+
+#endif
 
 #endif // AUX_CONTROLS_ENABLED
 
@@ -1901,17 +1939,19 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
             HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 2);
             HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
         }
-    }
 
-    hal.limits.enable(settings->limits.flags.hard_enabled, (axes_signals_t){0});
+        hal.limits.enable(settings->limits.flags.hard_enabled, (axes_signals_t){0});
 
 #if AUX_CONTROLS_ENABLED
-    uint_fast8_t i;
-    for(i = 0; i < AuxCtrl_NumEntries; i++) {
-        if(aux_ctrl[i].enabled && aux_ctrl[i].irq_mode != IRQ_Mode_None)
-            hal.port.register_interrupt_handler(aux_ctrl[i].port, (settings->control_invert.mask & aux_ctrl[i].cap.mask) ? IRQ_Mode_Falling : IRQ_Mode_Rising, aux_irq_handler);
-    }
+        for(i = 0; i < AuxCtrl_NumEntries; i++) {
+            if(aux_ctrl[i].enabled && aux_ctrl[i].irq_mode != IRQ_Mode_None) {
+                if(aux_ctrl[i].irq_mode & (IRQ_Mode_Falling|IRQ_Mode_Rising))
+                    aux_ctrl[i].irq_mode = (settings->control_invert.mask & aux_ctrl[i].cap.mask) ? IRQ_Mode_Falling : IRQ_Mode_Rising;
+                hal.port.register_interrupt_handler(aux_ctrl[i].port, aux_ctrl[i].irq_mode, aux_irq_handler);
+            }
+        }
 #endif
+    }
 }
 
 static char *port2char (GPIO_TypeDef *port)
@@ -2376,7 +2416,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "231228";
+    hal.driver_version = "240110";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2560,7 +2600,7 @@ bool driver_init (void)
 #endif
 #if MOTOR_WARNING_ENABLE
             if(input->port == MOTOR_WARNING_PORT && input->pin == MOTOR_WARNING_PIN && input->cap.irq_mode != IRQ_Mode_None)
-                aux_control_port[AuxCtrl_MotorWarning] = aux_inputs.n_pins - 1;
+                aux_ctrl[AuxCtrl_MotorWarning].port = aux_inputs.n_pins - 1;
 #endif
         } else if(input->group == PinGroup_AuxInputAnalog) {
             if(aux_analog_in.pins.inputs == NULL)
@@ -2715,11 +2755,10 @@ void DEBOUNCE_TIMER_IRQHandler (void)
         debounce.door = Off;
 #if AUX_CONTROLS_ENABLED
         aux_ctrl[AuxCtrl_SafetyDoor].debouncing = false;
-#else
+#endif
         control_signals_t state = systemGetState();
         if(state.safety_door_ajar)
             hal.control.interrupt_callback(state);
-#endif
     }
 }
 
