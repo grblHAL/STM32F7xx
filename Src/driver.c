@@ -586,7 +586,7 @@ static void StepperDisableMotors (axes_signals_t axes, squaring_mode_t mode)
     motors_2.mask = (mode == SquaringMode_B || mode == SquaringMode_Both ? axes.mask : 0) ^ AXES_BITMASK;
 }
 
-#else
+#else // SQUARING DISABLED
 
 // Set stepper pulse output pins
 // NOTE: step_outbits are: bit0 -> X, bit1 -> Y, bit2 -> Z...
@@ -595,8 +595,17 @@ inline static __attribute__((always_inline)) void stepperSetStepOutputs (axes_si
 #if STEP_OUTMODE == GPIO_SINGLE
     step_outbits.mask ^= settings.steppers.step_invert.mask;
     DIGITAL_OUT(X_STEP_PORT, X_STEP_BIT, step_outbits.x);
-    DIGITAL_OUT(Y_STEP_PORT, Y_STEP_BIT, step_outbits.y);
+  #ifdef X2_STEP_PIN
+    DIGITAL_OUT(X2_STEP_PORT, X2_STEP_BIT, step_outbits.x);
+  #endif
+   DIGITAL_OUT(Y_STEP_PORT, Y_STEP_BIT, step_outbits.y);
+  #ifdef Y2_STEP_PIN
+   DIGITAL_OUT(Y2_STEP_PORT, Y2_STEP_BIT, step_outbits.y);
+  #endif
     DIGITAL_OUT(Z_STEP_PORT, Z_STEP_BIT, step_outbits.z);
+  #ifdef Z2_STEP_PIN
+    DIGITAL_OUT(Z2_STEP_PORT, Z2_STEP_BIT, step_outbits.z);
+  #endif
   #ifdef A_AXIS
     DIGITAL_OUT(A_STEP_PORT, A_STEP_BIT, step_outbits.a);
   #endif
@@ -614,8 +623,27 @@ inline static __attribute__((always_inline)) void stepperSetStepOutputs (axes_si
   #endif
 #elif STEP_OUTMODE == GPIO_MAP
     STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | step_outmap[step_outbits.value];
-#else
-    STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | ((step_outbits.mask ^ settings.steppers.step_invert.mask) << STEP_OUTMODE);
+  #ifdef X2_STEP_PIN
+    DIGITAL_OUT(X2_STEP_PORT, X2_STEP_BIT, step_outbits.x ^ settings.steppers.step_invert.x);
+  #endif
+  #ifdef Y2_STEP_PIN
+      DIGITAL_OUT(Y2_STEP_PORT, Y2_STEP_BIT, step_outbits.y ^ settings.steppers.step_invert.y);
+  #endif
+  #ifdef Z2_STEP_PIN
+      DIGITAL_OUT(Z2_STEP_PORT, Z2_STEP_BIT, step_outbits.z ^ settings.steppers.step_invert.z);
+  #endif
+#else // STEP_OUTMODE == GPIO_SHIFTx
+    step_outbits.mask ^= settings.steppers.step_invert.mask;
+    STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | (step_outbits.mask << STEP_OUTMODE);
+  #ifdef X2_STEP_PIN
+    DIGITAL_OUT(X2_STEP_PORT, X2_STEP_BIT, step_outbits.x);
+  #endif
+  #ifdef Y2_PIN
+    DIGITAL_OUT(Y2_STEP_PORT, Y2_STEP_BIT, step_outbits.y);
+  #endif
+  #ifdef Z2_STEP_PIN
+    DIGITAL_OUT(Z2_STEP_PORT, Z2_STEP_BIT, step_outbits.z);
+  #endif
 #endif
 }
 
@@ -1115,13 +1143,13 @@ static control_signals_t systemGetState (void)
     if(aux_ctrl[AuxCtrl_SafetyDoor].debouncing)
         signals.safety_door_ajar = !settings.control_invert.safety_door_ajar;
     else
-        signals.safety_door_ajar = DIGITAL_IN(SAFETY_DOOR_PORT, SAFETY_DOOR_PIN);
+        signals.safety_door_ajar = DIGITAL_IN(SAFETY_DOOR_PORT, 1 << SAFETY_DOOR_PIN);
   #endif
   #ifdef MOTOR_FAULT_PIN
-    signals.motor_fault = DIGITAL_IN(MOTOR_FAULT_PORT, MOTOR_FAULT_PIN);
+    signals.motor_fault = DIGITAL_IN(MOTOR_FAULT_PORT, 1 << MOTOR_FAULT_PIN);
   #endif
   #ifdef MOTOR_WARNING_PIN
-    signals.motor_warning = DIGITAL_IN(MOTOR_WARNING_PORT, MOTOR_WARNING_PIN);
+    signals.motor_warning = DIGITAL_IN(MOTOR_WARNING_PORT, 1 << MOTOR_WARNING_PIN);
   #endif
 
     if(settings.control_invert.mask)
@@ -2416,7 +2444,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "240110";
+    hal.driver_version = "240115";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
