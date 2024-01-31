@@ -1,23 +1,24 @@
 {
   "caps":
   {
+    "informal": 1,
     "axes": 8,
     "usb_cdc": 1,
     "uart": 1,
     "spindle_pwm": 1,
     "spindle_dir": 1,
-    "serial_ports": 2,
+    "serial_ports": 3,
     "eeprom": 1,
     "ganged_axes": 1,
     "auto_square": 1,
     "digital_in": 7,
     "digital_out": 4,
+    "analog_in": 2,
     "probe": 1,
     "safety_door": 1,
     "estop": 1,
     "mpg_mode": 1,
     "sdcard": 1,
-	"keypad": 0,
     "ethernet": 1,
     "hc05": 1,
     "pio_board": "nucleo_f756zg",
@@ -76,6 +77,7 @@
       "MAP": "Inc/reference_map.h",
       "caps": {
         "axes": 8,
+        "serial_ports": 2,
         "digital_in": 3,
         "digital_out": 4
       }
