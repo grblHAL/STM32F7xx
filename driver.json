@@ -9,6 +9,7 @@
     "spindle_dir": 1,
     "serial_ports": 3,
     "eeprom": 1,
+    "i2c_strobe": 1,
     "ganged_axes": 1,
     "auto_square": 1,
     "digital_in": 7,
@@ -20,7 +21,6 @@
     "mpg_mode": 1,
     "sdcard": 1,
     "ethernet": 1,
-    "hc05": 1,
     "pio_board": "nucleo_f756zg",
     "ldscript": "STM32F756ZGTX_FLASH.ld",
     "plugins": [
