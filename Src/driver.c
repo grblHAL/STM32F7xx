@@ -62,6 +62,10 @@
 #include "laser/ppi.h"
 #endif
 
+#if KEYPAD_ENABLE == 2
+#include "keypad/keypad.h"
+#endif
+
 #if FLASH_ENABLE
 #include "flash.h"
 #endif
@@ -1636,6 +1640,21 @@ static uint_fast16_t valueSetAtomic (volatile uint_fast16_t *ptr, uint_fast16_t 
     return prev;
 }
 
+#if MPG_MODE == 1
+
+static void mpg_select (void *data)
+{
+    stream_mpg_enable(DIGITAL_IN(MPG_MODE_PORT, MPG_MODE_PIN) == 0);
+}
+
+static void mpg_enable (void *data)
+{
+    if(sys.mpg_mode != (DIGITAL_IN(MPG_MODE_PORT, MPG_MODE_PIN) == 0))
+        stream_mpg_enable(true);
+}
+
+#endif
+
 static uint64_t getElapsedMicros (void)
 {
     uint32_t ms, cycles;
@@ -2444,7 +2463,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "240202";
+    hal.driver_version = "240205";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2695,6 +2714,22 @@ bool driver_init (void)
                 hal.signals_cap.mask |= aux_ctrl[i].cap.mask;
         }
     }
+#endif
+
+#if MPG_MODE == 1
+  #if KEYPAD_ENABLE == 2
+    if((hal.driver_cap.mpg_mode = stream_mpg_register(stream_open_instance(MPG_STREAM, 115200, NULL, NULL), false, keypad_enqueue_keycode)))
+        protocol_enqueue_foreground_task(mpg_enable, NULL);
+  #else
+    if((hal.driver_cap.mpg_mode = stream_mpg_register(stream_open_instance(MPG_STREAM, 115200, NULL, NULL), false, NULL)))
+        protocol_enqueue_foreground_task(mpg_enable, NULL);
+  #endif
+#elif MPG_MODE == 2
+    hal.driver_cap.mpg_mode = stream_mpg_register(stream_open_instance(MPG_STREAM, 115200, NULL, NULL), false, keypad_enqueue_keycode);
+#elif MPG_MODE == 3
+    hal.driver_cap.mpg_mode = stream_mpg_register(stream_open_instance(MPG_STREAM, 115200, NULL, NULL), false, stream_mpg_check_enable);
+#elif KEYPAD_ENABLE == 2
+    stream_open_instance(KEYPAD_STREAM, 115200, keypad_enqueue_keycode, "Keypad");
 #endif
 
 #if ETHERNET_ENABLE

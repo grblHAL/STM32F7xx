@@ -3,20 +3,20 @@
 
   Part of grblHAL
 
-  Copyright (c) 2021-2023 Terje Io
+  Copyright (c) 2021-2024 Terje Io
 
-  Grbl is free software: you can redistribute it and/or modify
+  grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  Grbl is distributed in the hope that it will be useful,
+  grblHAL is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+  along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
 */
 
 // NOTE: Only one board may be enabled!
@@ -56,7 +56,12 @@
 //#define ETHERNET_ENABLE         1 // Ethernet streaming. Uses networking plugin.
 //#define BLUETOOTH_ENABLE        2 // Set to 2 for HC-05 module. Uses Bluetooth plugin.
 //#define SDCARD_ENABLE           1 // Run gcode programs from SD card. Set to 2 to enable YModem upload.
-//#define KEYPAD_ENABLE           1 // I2C keypad for jogging etc., uses keypad plugin.
+//#define MPG_ENABLE              1 // Enable MPG interface. Requires a serial port and means to switch between normal and MPG mode.
+                                    // 1: Mode switching is by handshake pin input unless the keypad plugin is enabled in mode 2 which
+                                    //    uses mode switching by the CMD_MPG_MODE_TOGGLE (0x8B) command character.
+                                    // 2: Mode switching is by the CMD_MPG_MODE_TOGGLE command character. The keypad plugin is not required.
+//#define KEYPAD_ENABLE           1 // 1: uses a I2C keypad for input.
+                                    // 2: uses a serial port for input. If MPG_ENABLE is set to 1 the serial stream is shared with the MPG.
 //#define ODOMETER_ENABLE         1 // Odometer plugin.
 //#define PPI_ENABLE              1 // Laser PPI plugin. To be completed.
 //#define LASER_COOLANT_ENABLE    1 // Laser coolant plugin. To be completed.
