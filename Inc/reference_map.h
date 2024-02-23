@@ -5,18 +5,18 @@
 
   Copyright (c) 2021-2023 Terje Io
 
-  Grbl is free software: you can redistribute it and/or modify
+  grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  Grbl is distributed in the hope that it will be useful,
+  grblHAL is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+  along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
 */
 
 
@@ -187,10 +187,6 @@
 
 #define CONTROL_INMODE          GPIO_SINGLE
 
-// Define probe switch input pin.
-#define PROBE_PORT              GPIOF
-#define PROBE_PIN               10
-
 #if SDCARD_ENABLE
 //#define SD_CS_PORT              GPIOC
 //#define SD_CS_PIN               8
@@ -207,40 +203,43 @@
 #define AUXINPUT3_PORT          GPIOB
 #define AUXINPUT3_PIN           10
 #endif
+#define AUXINPUT4_PORT          GPIOF
+#define AUXINPUT4_PIN           10
 
-#define AUXOUTPUT0_PORT         GPIOB
-#define AUXOUTPUT0_PIN          11
-#define AUXOUTPUT1_PORT         GPIOB
-#define AUXOUTPUT1_PIN          10
-#define AUXOUTPUT2_PORT         GPIOE
-#define AUXOUTPUT2_PIN          2
-#define AUXOUTPUT3_PORT         GPIOF
-#define AUXOUTPUT3_PIN          0
-/*
-#define AUXOUTPUT4_PORT          GPIOE
-#define AUXOUTPUT4_PIN           15
-#define AUXOUTPUT5_PORT          GPIOD
-#define AUXOUTPUT5_PIN           1
-#define AUXOUTPUT6_PORT          GPIOF
-#define AUXOUTPUT6_PIN           2
-*/
+#if PROBE_ENABLE
+#define PROBE_PORT              AUXINPUT4_PORT
+#define PROBE_PIN               AUXINPUT4_PIN
+#endif
 
 #if SAFETY_DOOR_ENABLE
-#if N_ABC_MOTORS
+#ifndef AUXINPUT3_PIN
 #error "Safety door cannot be enabled when > 3 motors are defined."
 #endif
 #define SAFETY_DOOR_PORT        AUXINPUT3_PORT
 #define SAFETY_DOOR_PIN         AUXINPUT3_PIN
 #endif
 
-#if MOTOR_FAULT_ENABLE
+#if I2C_STROBE_ENABLE
+#define I2C_STROBE_PORT         AUXINPUT1_PORT
+#define I2C_STROBE_PIN          AUXINPUT1_PIN
+#elif MOTOR_FAULT_ENABLE
 #define MOTOR_FAULT_PORT        AUXINPUT1_PORT
 #define MOTOR_FAULT_PIN         AUXINPUT1_PIN
 #endif
 
-#if MOTOR_WARNING_ENABLE
+#if MPG_MODE == 1
+#define MPG_MODE_PORT           AUXINPUT2_PORT
+#define MPG_MODE_PIN            AUXINPUT2_PIN
+#elif MOTOR_WARNING_ENABLE
 #define MOTOR_WARNING_PORT      AUXINPUT2_PORT
 #define MOTOR_WARNING_PIN       AUXINPUT2_PIN
 #endif
+
+#define AUXOUTPUT0_PORT         GPIOB
+#define AUXOUTPUT0_PIN          11
+#define AUXOUTPUT1_PORT         GPIOE
+#define AUXOUTPUT1_PIN          2
+#define AUXOUTPUT2_PORT         GPIOF
+#define AUXOUTPUT2_PIN          0
 
 /**/

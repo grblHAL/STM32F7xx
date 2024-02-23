@@ -6,18 +6,18 @@
 
   Copyright (c) 2021-2024 Terje Io
 
-  Grbl is free software: you can redistribute it and/or modify
+  grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  Grbl is distributed in the hope that it will be useful,
+  grblHAL is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+  along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
 
 */
 
@@ -38,8 +38,8 @@
 #include "main.h"
 #include "grbl/driver_opts.h"
 
-#define DIGITAL_OUT(port, bit, on) { port->BSRR = (on) ? bit : (bit << 16); }
-#define DIGITAL_IN(port, bit) (!!(port->IDR & bit))
+#define DIGITAL_OUT(port, bit, on) { port->BSRR = (on) ? (bit) : ((bit) << 16); }
+#define DIGITAL_IN(port, bit) (!!(port->IDR & (bit)))
 
 #define timer(t) timerN(t)
 #define timerN(t) TIM ## t
@@ -436,12 +436,6 @@
 #endif
 #endif
 
-#define DEBOUNCE_TIMER_N            9
-#define DEBOUNCE_TIMER              timer(DEBOUNCE_TIMER_N)
-#define DEBOUNCE_TIMER_CLKEN        timerCLKEN(DEBOUNCE_TIMER_N)
-#define DEBOUNCE_TIMER_IRQn         TIM1_BRK_TIM9_IRQn       // !
-#define DEBOUNCE_TIMER_IRQHandler   TIM1_BRK_TIM9_IRQHandler // !
-
 #define RPM_COUNTER_N               3
 #define RPM_COUNTER                 timer(RPM_COUNTER_N)
 #define RPM_COUNTER_CLKEN           timerCLKEN(RPM_COUNTER_N)
@@ -566,17 +560,16 @@
 
 typedef struct {
     pin_function_t id;
-    GPIO_TypeDef *port;
-    uint8_t pin;
-    uint32_t bit;
-    pin_group_t group;
-    volatile bool active;
-    volatile bool debounce;
     pin_cap_t cap;
     pin_mode_t mode;
+    uint8_t pin;
+    uint32_t bit;
+    GPIO_TypeDef *port;
+    pin_group_t group;
+    uint8_t user_port;
+    volatile bool active;
     ioport_interrupt_callback_ptr interrupt_callback;
     ADC_HandleTypeDef *adc;
-    aux_ctrl_t *aux_ctrl;
     const char *description;
 } input_signal_t;
 
@@ -605,6 +598,6 @@ void ioports_init(pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_outputs);
 #if AUX_ANALOG
 void ioports_init_analog (pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_outputs);
 #endif
-void ioports_event (uint32_t bit);
+void ioports_event (input_signal_t *input);
 
 #endif // __DRIVER_H__

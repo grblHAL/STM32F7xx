@@ -5,18 +5,18 @@
 
   Copyright (c) 2021-2023 Terje Io
 
-  Grbl is free software: you can redistribute it and/or modify
+  grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  Grbl is distributed in the hope that it will be useful,
+  grblHAL is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
+  along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #if N_ABC_MOTORS > 1
@@ -117,21 +117,26 @@
 
 #define AUXINPUT0_PORT          GPIOB
 #define AUXINPUT0_PIN           8
+#define AUXINPUT1_PORT          GPIOB
+#define AUXINPUT1_PIN           15
+#if !ETHERNET_ENABLE
+#define AUXINPUT2_PORT          GPIOA
+#define AUXINPUT2_PIN           7
+#endif
+
+#if PROBE_ENABLE && defined(AUXINPUT2_PIN)
+#define PROBE_PORT              AUXINPUT2_PORT
+#define PROBE_PIN               AUXINPUT2_PIN
+#endif
 
 #if SAFETY_DOOR_ENABLE
 #define SAFETY_DOOR_PORT        AUXINPUT0_PORT
 #define SAFETY_DOOR_PIN         AUXINPUT0_PIN
 #endif
 
-// Define probe switch input pin.
-#if !ETHERNET_ENABLE
-#define PROBE_PORT              GPIOA
-#define PROBE_PIN               7
-#endif
-
 #if I2C_STROBE_ENABLE
-#define I2C_STROBE_PORT         GPIOB
-#define I2C_STROBE_PIN          15
+#define I2C_STROBE_PORT         AUXINPUT1_PORT
+#define I2C_STROBE_PIN          AUXINPUT1_PIN
 #endif
 
 #if SDCARD_ENABLE
