@@ -35,7 +35,7 @@ static volatile uint32_t event_bits;
 
 static bool digital_out_cfg (xbar_t *output, gpio_out_config_t *config, bool persistent)
 {
-    if(output->id < digital.out.n_ports) {
+    if(output->id < digital.out.n_ports && !output->mode.pwm) {
 
         if(config->inverted != aux_out[output->id].mode.inverted) {
             aux_out[output->id].mode.inverted = config->inverted;
@@ -218,6 +218,7 @@ static xbar_t *get_pin_info (io_port_type_t type, io_port_direction_t dir, uint8
 
         if(dir == Port_Output && port < digital.out.n_ports) {
             XBAR_SET_DOUT_INFO(pin, ioports_map(digital.out, port), aux_out[pin.id], digital_out_cfg, digital_out_state);
+            pin.cap.pwm = pin.mode.pwm || pwm_is_available(aux_out[pin.id].port, aux_out[pin.id].pin);
             info = &pin;
         }
     }

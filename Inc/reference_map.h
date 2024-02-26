@@ -3,7 +3,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2021-2023 Terje Io
+  Copyright (c) 2021-2024 Terje Io
 
   grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -144,32 +144,33 @@
 
 // Define driver spindle pins
 
-#if DRIVER_SPINDLE_PWM_ENABLE
-#define SPINDLE_PWM_PORT_BASE   GPIOB_BASE
-#define SPINDLE_PWM_PIN         0
-#else
-#define AUXOUTPUT4_PORT         GPIOB
+#define AUX_CONTROLS_OUT
+
+#define AUXOUTPUT0_PORT         GPIOB
+#define AUXOUTPUT0_PIN          11
+#define AUXOUTPUT1_PORT         GPIOE
+#define AUXOUTPUT1_PIN          2
+#define AUXOUTPUT2_PORT         GPIOF
+#define AUXOUTPUT2_PIN          0
+#define AUXOUTPUT3_PORT         GPIOA // spindle dir
+#define AUXOUTPUT3_PIN          5
+#define AUXOUTPUT4_PORT         GPIOB // spindle PWM
 #define AUXOUTPUT4_PIN          0
-#endif
+#define AUXOUTPUT5_PORT         GPIOA // spindle enable
+#define AUXOUTPUT5_PIN          6
 
-#if DRIVER_SPINDLE_DIR_ENABLE
-#define SPINDLE_DIRECTION_PORT  GPIOA
-#define SPINDLE_DIRECTION_PIN   5
-#else
-#define AUXOUTPUT5_PORT         GPIOA
-#define AUXOUTPUT5_PIN          5
-#endif
-
+#if DRIVER_SPINDLE_ENABLE
+#define SPINDLE_ENABLE_PORT     AUXOUTPUT5_PORT
+#define SPINDLE_ENABLE_PIN      AUXOUTPUT5_PIN
 #if DRIVER_SPINDLE_PWM_ENABLE
-#define SPINDLE_ENABLE_PORT     GPIOA // on morpho header
-#define SPINDLE_ENABLE_PIN      15
-#elif DRIVER_SPINDLE_ENABLE
-#define SPINDLE_ENABLE_PORT     GPIOA
-#define SPINDLE_ENABLE_PIN      6
-#else
-#define AUXOUTPUT2_PORT         GPIOA
-#define AUXOUTPUT2_PIN          6
+#define SPINDLE_PWM_PORT        AUXOUTPUT4_PORT
+#define SPINDLE_PWM_PIN         AUXOUTPUT4_PIN
 #endif
+#if DRIVER_SPINDLE_DIR_ENABLE
+#define SPINDLE_DIRECTION_PORT  AUXOUTPUT3_PORT
+#define SPINDLE_DIRECTION_PIN   AUXOUTPUT3_PIN
+#endif
+#endif // DRIVER_SPINDLE_ENABLE
 
 // Define flood and mist coolant enable output pins.
 #define COOLANT_FLOOD_PORT      GPIOE
@@ -235,11 +236,5 @@
 #define MOTOR_WARNING_PIN       AUXINPUT2_PIN
 #endif
 
-#define AUXOUTPUT0_PORT         GPIOB
-#define AUXOUTPUT0_PIN          11
-#define AUXOUTPUT1_PORT         GPIOE
-#define AUXOUTPUT1_PIN          2
-#define AUXOUTPUT2_PORT         GPIOF
-#define AUXOUTPUT2_PIN          0
 
 /**/

@@ -327,6 +327,7 @@ static output_signal_t outputpin[] = {
 #ifdef MOTOR_UARTM5_PIN
     { .id = Bidirectional_MotorUARTM5, .port = MOTOR_UARTM5_PORT,      .pin = MOTOR_UARTM5_PIN,      .group = PinGroup_MotorUART },
 #endif
+#ifndef AUX_CONTROLS_OUT
 #if DRIVER_SPINDLE_ENABLE
 #ifdef SPINDLE_ENABLE_PIN
     { .id = Output_SpindleOn,          .port = SPINDLE_ENABLE_PORT,    .pin = SPINDLE_ENABLE_PIN,    .group = PinGroup_SpindleControl },
@@ -335,7 +336,10 @@ static output_signal_t outputpin[] = {
     { .id = Output_SpindleDir,         .port = SPINDLE_DIRECTION_PORT, .pin = SPINDLE_DIRECTION_PIN, .group = PinGroup_SpindleControl },
 #endif
 #endif // DRIVER_SPINDLE_ENABLE
+#endif // AUX_CONTROLS_OUT
+#ifdef COOLANT_FLOOD_PIN
     { .id = Output_CoolantFlood,       .port = COOLANT_FLOOD_PORT,     .pin = COOLANT_FLOOD_PIN,     .group = PinGroup_Coolant },
+#endif
 #ifdef COOLANT_MIST_PIN
     { .id = Output_CoolantMist,        .port = COOLANT_MIST_PORT,      .pin = COOLANT_MIST_PIN,      .group = PinGroup_Coolant },
 #endif
@@ -364,9 +368,21 @@ static output_signal_t outputpin[] = {
     { .id = Output_Aux6,               .port = AUXOUTPUT6_PORT,        .pin = AUXOUTPUT6_PIN,        .group = PinGroup_AuxOutput },
 #endif
 #ifdef AUXOUTPUT7_PORT
-    { .id = Output_Aux7,               .port = AUXOUTPUT7_PORT,        .pin = AUXOUTPUT7_PIN,        .group = PinGroup_AuxOutput }
+    { .id = Output_Aux7,               .port = AUXOUTPUT7_PORT,        .pin = AUXOUTPUT7_PIN,        .group = PinGroup_AuxOutput },
+#endif
+#ifdef AUXOUTPUT0_ANALOG_PORT
+    { .id = Output_Analog_Aux0,     .port = AUXOUTPUT0_ANALOG_PORT, .pin = AUXOUTPUT0_ANALOG_PIN,   .group = PinGroup_AuxOutputAnalog },
+#elif defined(AUXOUTPUT0_PWM_PORT)
+    { .id = Output_Analog_Aux0,     .port = AUXOUTPUT0_PWM_PORT,    .pin = AUXOUTPUT0_PWM_PIN,      .group = PinGroup_AuxOutputAnalog, .mode = { PINMODE_PWM } },
+#endif
+#ifdef AUXOUTPUT1_ANALOG_PORT
+    { .id = Output_Analog_Aux1,     .port = AUXOUTPUT1_ANALOG_PORT, .pin = AUXOUTPUT1_ANALOG_PIN,   .group = PinGroup_AuxOutputAnalog },
+#elif defined(AUXOUTPUT1_PWM_PORT)
+    { .id = Output_Analog_Aux1,     .port = AUXOUTPUT1_PWM_PORT,    .pin = AUXOUTPUT1_PWM_PIN,      .group = PinGroup_AuxOutputAnalog, .mode = { PINMODE_PWM } }
 #endif
 };
+
+static pwm_signal_t spindle_timer = {0};
 
 extern __IO uint32_t uwTick, cycle_count;
 static uint32_t systick_safe_read = 0, cycles2us_factor = 0;
@@ -1278,6 +1294,49 @@ static bool aux_claim_explicit (aux_ctrl_t *aux_ctrl)
     return aux_ctrl->aux_port != 0xFF;
 }
 
+void ioport_assign_out_function (aux_ctrl_out_t *aux_ctrl, pin_function_t *function)
+{
+    xbar_t *input;
+
+    if((input = hal.port.get_pin_info(Port_Digital, Port_Output, aux_ctrl->aux_port))) {
+
+        *function = aux_ctrl->function;
+/*
+        if(aux_ctrl->function == Input_Probe || xbar_fn_to_signals_mask(aux_ctrl->function).mask)
+            setting_remove_elements(Settings_IoPort_InvertIn, digital.inx.mask & ~(1 << input->id)); */
+    }
+}
+
+static bool aux_out_claim_explicit (aux_ctrl_out_t *aux_ctrl)
+{
+#ifdef DRIVER_SPINDLE_PWM_ENABLE
+    if(aux_ctrl->function == Output_SpindlePWM) {
+
+        const pwm_signal_t *pwm_timer;
+
+        if((pwm_timer = pwm_claim(aux_ctrl->port, aux_ctrl->pin)))
+            memcpy(&spindle_timer, pwm_timer, sizeof(pwm_signal_t));
+        else {
+            aux_ctrl->aux_port = 0xFF;
+            return false;
+        }
+    }
+#endif
+
+    if(ioport_claim(Port_Digital, Port_Output, &aux_ctrl->aux_port, NULL)) {
+        ioport_assign_out_function(aux_ctrl, &((output_signal_t *)aux_ctrl->output)->id);
+#ifdef DRIVER_SPINDLE_PWM_ENABLE
+        if(aux_ctrl->function == Output_SpindlePWM) {
+            ((output_signal_t *)aux_ctrl->output)->mode.pwm = On;
+            pwm_enable(&spindle_timer);
+        }
+#endif
+    } else
+        aux_ctrl->aux_port = 0xFF;
+
+    return aux_ctrl->aux_port != 0xFF;
+}
+
 #endif // AUX_CONTROLS_ENABLED
 
 #if DRIVER_SPINDLE_ENABLE
@@ -1338,17 +1397,16 @@ static void spindleSetSpeed (spindle_ptrs_t *spindle, uint_fast16_t pwm_value)
                 spindle_off();
         }
         if(spindle->context.pwm->always_on) {
-            SPINDLE_PWM_TIMER_CCR = spindle->context.pwm->off_value;
-#if SPINDLE_PWM_TIMER_N == 1
-            SPINDLE_PWM_TIMER->BDTR |= TIM_BDTR_MOE;
-#endif
-            SPINDLE_PWM_TIMER_CCR = pwm_value;
-        } else
-#if SPINDLE_PWM_TIMER_N == 1
-            SPINDLE_PWM_TIMER->BDTR &= ~TIM_BDTR_MOE; // Set PWM output low
-#else
-            SPINDLE_PWM_TIMER_CCR = 0;
-#endif
+            *spindle_timer.ccr = spindle->context.pwm->off_value;
+            if(spindle_timer.timer == TIM1)
+                spindle_timer.timer->BDTR |= TIM_BDTR_MOE;
+            *spindle_timer.ccr = pwm_value;
+        } else {
+            if(spindle_timer.timer == TIM1)
+                spindle_timer.timer->BDTR &= ~TIM_BDTR_MOE;
+            else
+            	*spindle_timer.ccr = 0;
+  		}
     } else {
         if(!pwmEnabled) {
             if(spindle->context.pwm->cloned)
@@ -1357,10 +1415,9 @@ static void spindleSetSpeed (spindle_ptrs_t *spindle, uint_fast16_t pwm_value)
                 spindle_on(spindle);
             pwmEnabled = true;
         }
-        SPINDLE_PWM_TIMER_CCR = pwm_value;
-#if SPINDLE_PWM_TIMER_N == 1
-        SPINDLE_PWM_TIMER->BDTR |= TIM_BDTR_MOE;
-#endif
+        *spindle_timer.ccr = pwm_value;
+        if(spindle_timer.timer == TIM1)
+            spindle_timer.timer->BDTR |= TIM_BDTR_MOE;
     }
 }
 
@@ -1416,68 +1473,41 @@ bool spindleConfig (spindle_ptrs_t *spindle)
     if(spindle == NULL)
         return false;
 
-    RCC_ClkInitTypeDef clock;
-    uint32_t latency, prescaler = 1;
+    if(spindle_timer.timer) {
 
-    HAL_RCC_GetClockConfig(&clock, &latency);
+        RCC_ClkInitTypeDef clock;
+        uint32_t latency, prescaler = 1, clock_hz;
 
-  #if SPINDLE_PWM_TIMER_N == 1
-    if(spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, (HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider)) / prescaler)) {
-  #else
-    if(spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, (HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider)) / prescaler)) {
-  #endif
+        HAL_RCC_GetClockConfig(&clock, &latency);
 
-        while(spindle_pwm.period > 65534) {
-            prescaler++;
-#if SPINDLE_PWM_TIMER_N == 1
-            spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, (HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider)) / prescaler);
-#else
-            spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, (HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider)) / prescaler);
-#endif
-        }
+        clock_hz = spindle_timer.timer == TIM1
+                    ? (HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider))
+                    : (HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider));
 
-        spindle->set_state = spindleSetStateVariable;
+        if(spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, clock_hz / prescaler)) {
 
-        SPINDLE_PWM_TIMER->CR1 &= ~TIM_CR1_CEN;
+            while(spindle_pwm.period > 65534) {
+                prescaler++;
+                spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, clock_hz / prescaler);
+            }
 
-        TIM_Base_InitTypeDef timerInitStructure = {
-            .Prescaler = prescaler - 1,
-            .CounterMode = TIM_COUNTERMODE_UP,
-            .Period = spindle_pwm.period - 1,
-            .ClockDivision = TIM_CLOCKDIVISION_DIV1,
-            .RepetitionCounter = 0
-        };
+            spindle->set_state = spindleSetStateVariable;
 
-        TIM_Base_SetConfig(SPINDLE_PWM_TIMER, &timerInitStructure);
+            pwm_config(&spindle_timer, prescaler, spindle_pwm.period, settings.spindle.invert.pwm);
 
-        SPINDLE_PWM_TIMER->CCER &= ~SPINDLE_PWM_CCER_EN;
-        SPINDLE_PWM_TIMER_CCMR &= ~SPINDLE_PWM_CCMR_OCM_CLR;
-        SPINDLE_PWM_TIMER_CCMR |= SPINDLE_PWM_CCMR_OCM_SET;
-        SPINDLE_PWM_TIMER_CCR = 0;
-  #if SPINDLE_PWM_TIMER_N == 1
-        SPINDLE_PWM_TIMER->BDTR |= TIM_BDTR_OSSR|TIM_BDTR_OSSI;
-  #endif
-        if(settings.spindle.invert.pwm) {
-            SPINDLE_PWM_TIMER->CCER |= SPINDLE_PWM_CCER_POL;
-            SPINDLE_PWM_TIMER->CR2 |= SPINDLE_PWM_CR2_OIS;
         } else {
-            SPINDLE_PWM_TIMER->CCER &= ~SPINDLE_PWM_CCER_POL;
-            SPINDLE_PWM_TIMER->CR2 &= ~SPINDLE_PWM_CR2_OIS;
+            if(pwmEnabled)
+                spindle->set_state(spindle, (spindle_state_t){0}, 0.0f);
+            spindle->set_state = spindleSetState;
         }
-        SPINDLE_PWM_TIMER->CCER |= SPINDLE_PWM_CCER_EN;
-        SPINDLE_PWM_TIMER->CR1 |= TIM_CR1_CEN;
-
-    } else {
-        if(pwmEnabled)
-            spindle->set_state(spindle, (spindle_state_t){0}, 0.0f);
-        spindle->set_state = spindleSetState;
-    }
-
-    spindle_update_caps(spindle, spindle->cap.variable ? &spindle_pwm : NULL);
 
 #if SPINDLE_ENCODER_ENABLE
     spindle->cap.at_speed = spindle->get_data == spindleGetData;
 #endif
+    } else // PWM output not available
+        spindle->set_state = spindleSetState;
+
+    spindle_update_caps(spindle, spindle->cap.variable ? &spindle_pwm : NULL);
 
     return true;
 }
@@ -2157,7 +2187,9 @@ static bool driver_setup (settings_t *settings)
     hal.delay_ms(100, NULL);
 
     for(i = 0 ; i < sizeof(outputpin) / sizeof(output_signal_t); i++) {
-        if(!(outputpin[i].group == PinGroup_StepperPower || outputpin[i].group == PinGroup_AuxOutputAnalog)) {
+        if(!(outputpin[i].group == PinGroup_StepperPower ||
+              outputpin[i].group == PinGroup_AuxOutputAnalog ||
+               outputpin[i].id == Output_SpindlePWM)) {
 
             GPIO_Init.Pin = outputpin[i].bit = 1 << outputpin[i].pin;
             GPIO_Init.Mode = outputpin[i].mode.open_drain ? GPIO_MODE_OUTPUT_OD : GPIO_MODE_OUTPUT_PP;
@@ -2222,7 +2254,7 @@ static bool driver_setup (settings_t *settings)
 
   // Spindle init
 
-#if DRIVER_SPINDLE_PWM_ENABLE
+#if !DRIVER_SPINDLE_PWM_ENABLE
 
     SPINDLE_PWM_TIMER_CLKEN();
 
@@ -2612,7 +2644,15 @@ bool driver_init (void)
         if(output->group == PinGroup_AuxOutput) {
             if(aux_outputs.pins.outputs == NULL)
                 aux_outputs.pins.outputs = output;
-            output->id = (pin_function_t)(Output_Aux0 + aux_outputs.n_pins++);
+            output->id = (pin_function_t)(Output_Aux0 + aux_outputs.n_pins);
+#ifdef AUX_CONTROLS_OUT
+            aux_ctrl_out_t *aux_remap;
+            if((aux_remap = aux_out_remap_explicit(output->port, output->pin, aux_outputs.n_pins, output))) {
+//                if(aux_remap->function == Input_Probe && input->cap.irq_mode == IRQ_Mode_Edges)
+//                    aux_remap->irq_mode = IRQ_Mode_Change;
+            }
+#endif
+            aux_outputs.n_pins++;
         } else if(output->group == PinGroup_AuxOutputAnalog) {
             if(aux_analog_out.pins.outputs == NULL)
                 aux_analog_out.pins.outputs = output;
@@ -2633,6 +2673,9 @@ bool driver_init (void)
 
 #if AUX_CONTROLS_ENABLED
     aux_ctrl_claim_ports(aux_claim_explicit, NULL);
+#endif
+#ifdef AUX_CONTROLS_OUT
+    aux_ctrl_claim_out_ports(aux_out_claim_explicit, NULL);
 #endif
 
 #if MPG_MODE == 1

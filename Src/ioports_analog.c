@@ -23,13 +23,13 @@
 
 #if AUX_ANALOG
 
-#ifdef AUXOUTPUT0_PWM_PORT_BASE
+#ifdef AUXOUTPUT0_PWM_PORT
 #define PWM_OUT0 1
 #else
 #define PWM_OUT0 0
 #endif
 
-#ifdef AUXOUTPUT1_PWM_PORT_BASE
+#ifdef AUXOUTPUT1_PWM_PORT
 #define PWM_OUT1 1
 #else
 #define PWM_OUT1 0
@@ -103,9 +103,11 @@ static void enumerate_pins (bool low_level, pin_info_ptr pin_info, void *data)
 #if AUX_ANALOG_OUT
 
 typedef struct {
+    bool init_ok;
     ioports_pwm_t data;
     float value;
     void (*set_value)(uint_fast8_t ch, float value);
+    pwm_signal_t *pwm;
 } pwm_out_t;
 
 static pwm_out_t pwm_out[AUX_ANALOG_OUT] = {0};
@@ -129,11 +131,7 @@ static bool analog_out (uint8_t port, float value)
     return port < analog.out.n_ports;
 }
 
-#endif
-
-#ifdef AUXOUTPUT0_PWM_PORT_BASE
-
-static void pwm0_out (uint_fast8_t ch, float value)
+static void pwm_vout (uint_fast8_t ch, float value)
 {
     uint_fast16_t pwm_value = ioports_compute_pwm_value(&pwm_out[ch].data, value);
 
@@ -141,215 +139,70 @@ static void pwm0_out (uint_fast8_t ch, float value)
 
     if(pwm_value == pwm_out[ch].data.off_value) {
         if(pwm_out[ch].data.always_on) {
-            AUXOUTPUT0_PWM_TIMER_CCR = pwm_out[ch].data.off_value;
-#if AUXOUTPUT0_PWM_TIMER_N == 1
-            AUXOUTPUT0_PWM_TIMER->BDTR |= TIM_BDTR_MOE;
-#endif
-            AUXOUTPUT0_PWM_TIMER_CCR = pwm_value;
-        } else
-#if AUXOUTPUT0_PWM_TIMER_N == 1
-            AUXOUTPUT0_PWM_TIMER->BDTR &= ~TIM_BDTR_MOE; // Set PWM output low
-#else
-            AUXOUTPUT0_PWM_TIMER_CCR = 0;
-#endif
+            *pwm_out[ch].pwm->ccr = pwm_out[ch].data.off_value;
+            if(pwm_out[ch].pwm->timer == TIM1)
+                pwm_out[ch].pwm->timer->BDTR |= TIM_BDTR_MOE;
+            *pwm_out[ch].pwm->ccr = 0;
+        } else {
+            if(pwm_out[ch].pwm->timer == TIM1)
+                pwm_out[ch].pwm->timer->BDTR |= TIM_BDTR_MOE;
+            *pwm_out[ch].pwm->ccr = 0;
+        }
     } else {
-        AUXOUTPUT0_PWM_TIMER_CCR = pwm_value;
-#if AUXOUTPUT0_PWM_TIMER_N == 1
-        AUXOUTPUT0_PWM_TIMER->BDTR |= TIM_BDTR_MOE;
-#endif
+        *pwm_out[ch].pwm->ccr = pwm_value;
+        if(pwm_out[ch].pwm->timer == TIM1)
+            pwm_out[ch].pwm->timer->BDTR |= TIM_BDTR_MOE;
     }
 }
 
-static bool init_pwm0 (xbar_t *output, pwm_config_t *config, bool persistent)
+static bool init_pwm (xbar_t *output, pwm_config_t *config, bool persistent)
 {
-    static bool init_ok = false;
-
     bool ok;
     RCC_ClkInitTypeDef clock;
     uint32_t latency, prescaler = 0;
     ioports_pwm_t *pwm_data = &pwm_out[output->id].data;
 
-    if(!init_ok) {
+    if(!pwm_out[output->id].init_ok) {
 
-        init_ok = true;
+        pwm_out[output->id].init_ok = true;
 
-        AUXOUTPUT0_PWM_CLKEN();
-
-        GPIO_InitTypeDef GPIO_Init = {
-            .Speed = GPIO_SPEED_FREQ_HIGH,
-            .Mode = GPIO_MODE_OUTPUT_PP,
-            .Pin = (1 << AUXOUTPUT0_PWM_PIN),
-            .Mode = GPIO_MODE_AF_PP,
-            .Pull = GPIO_NOPULL,
-            .Alternate = AUXOUTPUT0_PWM_AF
-        };
-        HAL_GPIO_Init(AUXOUTPUT0_PWM_PORT, &GPIO_Init);
-
-        pwm_out[output->id].set_value = pwm0_out;
-    }
-
-    HAL_RCC_GetClockConfig(&clock, &latency);
-
-    do {
-        prescaler++;
-#if AUXOUTPUT0_PWM_TIMER_N == 1
-        ok = ioports_precompute_pwm_values(config, pwm_data, (HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider)) / prescaler);
-#else
-        ok = ioports_precompute_pwm_values(config, pwm_data, (HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider)) / prescaler);
-#endif
-    } while(ok && pwm_data->period > 65530);
-
-    if(ok) {
-
-        AUXOUTPUT0_PWM_TIMER->CR1 &= ~TIM_CR1_CEN;
-
-        TIM_Base_InitTypeDef timerInitStructure = {
-            .Prescaler = prescaler - 1,
-            .CounterMode = TIM_COUNTERMODE_UP,
-            .Period = pwm_data->period - 1,
-            .ClockDivision = TIM_CLOCKDIVISION_DIV1,
-            .RepetitionCounter = 0
-        };
-
-        TIM_Base_SetConfig(AUXOUTPUT0_PWM_TIMER, &timerInitStructure);
-
-        AUXOUTPUT0_PWM_TIMER->CCER &= ~AUXOUTPUT0_PWM_CCER_EN;
-        AUXOUTPUT0_PWM_TIMER_CCMR &= ~AUXOUTPUT0_PWM_CCMR_OCM_CLR;
-        AUXOUTPUT0_PWM_TIMER_CCMR |= AUXOUTPUT0_PWM_CCMR_OCM_SET;
-        AUXOUTPUT0_PWM_TIMER_CCR = 0;
-#if AUXOUTPUT0_PWM_TIMER_N == 1
-        AUXOUTPUT0_PWM_TIMER->BDTR |= TIM_BDTR_OSSR|TIM_BDTR_OSSI;
-#endif
-        if(config->invert) {
-            AUXOUTPUT0_PWM_TIMER->CCER |= AUXOUTPUT0_PWM_CCER_POL;
-            AUXOUTPUT0_PWM_TIMER->CR2 |= AUXOUTPUT0_PWM_CR2_OIS;
-        } else {
-            AUXOUTPUT0_PWM_TIMER->CCER &= ~AUXOUTPUT0_PWM_CCER_POL;
-            AUXOUTPUT0_PWM_TIMER->CR2 &= ~AUXOUTPUT0_PWM_CR2_OIS;
+        if((pwm_out[output->id].pwm = pwm_claim((GPIO_TypeDef *)output->port, output->pin))) {
+            pwm_enable(pwm_out[output->id].pwm);
+            pwm_out[output->id].set_value = pwm_vout;
         }
-        AUXOUTPUT0_PWM_TIMER->CCER |= AUXOUTPUT0_PWM_CCER_EN;
-        AUXOUTPUT0_PWM_TIMER->CR1 |= TIM_CR1_CEN;
-
-        aux_out_analog[output->id].mode.pwm = !config->servo_mode;
-        aux_out_analog[output->id].mode.servo_pwm = config->servo_mode;
-
-        pwm0_out(output->id, config->min);
     }
+
+    if((ok = !!pwm_out[output->id].set_value)) {
+
+        HAL_RCC_GetClockConfig(&clock, &latency);
+
+        uint32_t clock_hz = pwm_out[output->id].pwm->timer == TIM1
+                             ? HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider)
+                             : HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider);
+
+        do {
+            prescaler++;
+            ok = ioports_precompute_pwm_values(config, pwm_data, clock_hz / prescaler);
+        } while(ok && pwm_data->period > 65530);
+
+        if(ok) {
+
+            pwm_config(pwm_out[output->id].pwm, prescaler, pwm_data->period, config->invert);
+
+            aux_out_analog[output->id].mode.pwm = !config->servo_mode;
+            aux_out_analog[output->id].mode.servo_pwm = config->servo_mode;
+
+            pwm_vout(output->id, config->min);
+        }
+    }
+
+    if(!ok && !aux_out_analog[output->id].mode.claimed)
+        hal.port.claim(Port_Analog, Port_Output, &output->id, "Unavailable");
 
     return ok;
 }
 
-#endif // AUXOUTPUT0_PWM_PORT_BASE
-
-#ifdef AUXOUTPUT1_PWM_PORT_BASE
-
-static void pwm1_out (uint_fast8_t ch, float value)
-{
-    uint_fast16_t pwm_value = ioports_compute_pwm_value(&pwm_out[ch].data, value);
-
-    pwm_out[ch].value = value;
-
-    if(pwm_value == pwm_out[ch].data.off_value) {
-        if(pwm_out[ch].data.always_on) {
-            AUXOUTPUT1_PWM_TIMER_CCR = pwm_out[ch].data.off_value;
-#if AUXOUTPUT1_PWM_TIMER_N == 1
-            AUXOUTPUT1_PWM_TIMER->BDTR |= TIM_BDTR_MOE;
-#endif
-            AUXOUTPUT1_PWM_TIMER_CCR = pwm_value;
-        } else
-#if AUXOUTPUT1_PWM_TIMER_N == 1
-            AUXOUTPUT1_PWM_TIMER->BDTR &= ~TIM_BDTR_MOE; // Set PWM output low
-#else
-            AUXOUTPUT1_PWM_TIMER_CCR = 0;
-#endif
-    } else {
-        AUXOUTPUT1_PWM_TIMER_CCR = pwm_value;
-#if AUXOUTPUT1_PWM_TIMER_N == 1
-        AUXOUTPUT1_PWM_TIMER->BDTR |= TIM_BDTR_MOE;
-#endif
-    }
-}
-
-static bool init_pwm1 (xbar_t *output, pwm_config_t *config, bool persistent)
-{
-    static bool init_ok = false;
-
-    bool ok;
-    RCC_ClkInitTypeDef clock;
-    uint32_t latency, prescaler = 0;
-    ioports_pwm_t *pwm_data = &pwm_out[output->id].data;
-
-    if(!init_ok) {
-
-        init_ok = true;
-
-        AUXOUTPUT1_PWM_CLKEN();
-
-        GPIO_InitTypeDef GPIO_Init = {
-            .Speed = GPIO_SPEED_FREQ_HIGH,
-            .Mode = GPIO_MODE_OUTPUT_PP,
-            .Pin = (1 << AUXOUTPUT1_PWM_PIN),
-            .Mode = GPIO_MODE_AF_PP,
-            .Pull = GPIO_NOPULL,
-            .Alternate = AUXOUTPUT1_PWM_AF
-        };
-        HAL_GPIO_Init(AUXOUTPUT1_PWM_PORT, &GPIO_Init);
-
-        pwm_out[output->id].set_value = pwm1_out;
-    }
-
-    HAL_RCC_GetClockConfig(&clock, &latency);
-
-    do {
-        prescaler++;
-#if AUXOUTPUT1_PWM_TIMER_N == 1
-        ok = ioports_precompute_pwm_values(config, pwm_data, (HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider)) / prescaler);
-#else
-        ok = ioports_precompute_pwm_values(config, pwm_data, (HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider)) / prescaler);
-#endif
-    } while(ok && pwm_data->period > 65530);
-
-    if(ok) {
-
-        AUXOUTPUT1_PWM_TIMER->CR1 &= ~TIM_CR1_CEN;
-
-        TIM_Base_InitTypeDef timerInitStructure = {
-            .Prescaler = prescaler - 1,
-            .CounterMode = TIM_COUNTERMODE_UP,
-            .Period = pwm_data->period - 1,
-            .ClockDivision = TIM_CLOCKDIVISION_DIV1,
-            .RepetitionCounter = 0
-        };
-
-        TIM_Base_SetConfig(AUXOUTPUT1_PWM_TIMER, &timerInitStructure);
-
-        AUXOUTPUT1_PWM_TIMER->CCER &= ~AUXOUTPUT1_PWM_CCER_EN;
-        AUXOUTPUT1_PWM_TIMER_CCMR &= ~AUXOUTPUT1_PWM_CCMR_OCM_CLR;
-        AUXOUTPUT1_PWM_TIMER_CCMR |= AUXOUTPUT1_PWM_CCMR_OCM_SET;
-        AUXOUTPUT1_PWM_TIMER_CCR = 0;
-#if AUXOUTPUT1_PWM_TIMER_N == 1
-        AUXOUTPUT1_PWM_TIMER->BDTR |= TIM_BDTR_OSSR|TIM_BDTR_OSSI;
-#endif
-        if(config->invert) {
-            AUXOUTPUT1_PWM_TIMER->CCER |= AUXOUTPUT1_PWM_CCER_POL;
-            AUXOUTPUT1_PWM_TIMER->CR2 |= AUXOUTPUT1_PWM_CR2_OIS;
-        } else {
-            AUXOUTPUT1_PWM_TIMER->CCER &= ~AUXOUTPUT1_PWM_CCER_POL;
-            AUXOUTPUT1_PWM_TIMER->CR2 &= ~AUXOUTPUT1_PWM_CR2_OIS;
-        }
-        AUXOUTPUT1_PWM_TIMER->CCER |= AUXOUTPUT1_PWM_CCER_EN;
-        AUXOUTPUT1_PWM_TIMER->CR1 |= TIM_CR1_CEN;
-
-        aux_out_analog[output->id].mode.pwm = !config->servo_mode;
-        aux_out_analog[output->id].mode.servo_pwm = config->servo_mode;
-
-        pwm1_out(output->id, config->min);
-    }
-
-    return ok;
-}
-
-#endif // AUXOUTPUT1_PWM_PORT_BASE
+#endif // AUX_ANALOG_OUT
 
 static int32_t wait_on_input_dummy (io_port_type_t type, uint8_t port, wait_mode_t wait_mode, float timeout)
 {
@@ -416,7 +269,6 @@ static xbar_t *get_pin_info (io_port_type_t type, io_port_direction_t dir, uint8
 
             case Port_Output:
 #if AUX_ANALOG_OUT
-
                 if(port < analog.out.n_ports) {
                     pin.id = ioports_map(analog.out, port);
                     pin.port = aux_out_analog[pin.id].port;
@@ -429,14 +281,7 @@ static xbar_t *get_pin_info (io_port_type_t type, io_port_direction_t dir, uint8
                     pin.port = (void *)aux_out_analog[pin.id].port;
                     pin.description = aux_out_analog[pin.id].description;
                     pin.get_value = pwm_get_value;
-    #ifdef AUXOUTPUT0_PWM_PORT_BASE
-                    if(aux_out_analog[pin.id].port == AUXOUTPUT0_PWM_PORT && aux_out_analog[port].pin == AUXOUTPUT0_PWM_PIN)
-                        pin.config = init_pwm0;
-    #endif
-    #ifdef AUXOUTPUT1_PWM_PORT_BASE
-                    if(aux_out_analog[pin.id].port == AUXOUTPUT1_PWM_PORT && aux_out_analog[port].pin == AUXOUTPUT1_PWM_PIN)
-                        pin.config = init_pwm1;
-    #endif
+                    pin.config = init_pwm;
                     info = &pin;
                 }
 #endif // AUX_ANALOG_OUT

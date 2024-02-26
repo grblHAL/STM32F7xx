@@ -3,7 +3,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2021-2023 Terje Io
+  Copyright (c) 2021-2024 Terje Io
 
   grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -78,29 +78,27 @@
 
 // Define driver spindle pins
 
-#if DRIVER_SPINDLE_PWM_ENABLE
-#define SPINDLE_PWM_PORT_BASE   GPIOA_BASE
-#define SPINDLE_PWM_PIN         8
-#else
-#define AUXOUTPUT0_PORT         GPIOA
-#define AUXOUTPUT0_PIN          8
-#endif
+#define AUX_CONTROLS_OUT
 
-#if DRIVER_SPINDLE_DIR_ENABLE
-#define SPINDLE_DIRECTION_PORT  GPIOB
-#define SPINDLE_DIRECTION_PIN   0
-#else
-#define AUXOUTPUT1_PORT         GPIOB
-#define AUXOUTPUT1_PIN          0
-#endif
+#define AUXOUTPUT0_PORT         GPIOB // spindle dir
+#define AUXOUTPUT0_PIN          0
+#define AUXOUTPUT1_PORT         GPIOA // spindle PWM
+#define AUXOUTPUT1_PIN          8
+#define AUXOUTPUT2_PORT         GPIOB // spindle on
+#define AUXOUTPUT2_PIN          1
 
 #if DRIVER_SPINDLE_ENABLE
-#define SPINDLE_ENABLE_PORT     GPIOB
-#define SPINDLE_ENABLE_PIN      1
-#else
-#define AUXOUTPUT2_PORT         GPIOB
-#define AUXOUTPUT2_PIN          1
+#define SPINDLE_ENABLE_PORT     AUXOUTPUT2_PORT
+#define SPINDLE_ENABLE_PIN      AUXOUTPUT2_PORT
+#if DRIVER_SPINDLE_PWM_ENABLE
+#define SPINDLE_PWM_PORT        AUXOUTPUT1_PORT
+#define SPINDLE_PWM_PIN         AUXOUTPUT1_PIN
 #endif
+#if DRIVER_SPINDLE_DIR_ENABLE
+#define SPINDLE_DIRECTION_PORT  AUXOUTPUT0_PORT
+#define SPINDLE_DIRECTION_PIN   AUXOUTPUT0_PIN
+#endif
+#endif // DRIVER_SPINDLE_ENABLE
 
 // Define flood and mist coolant enable output pins.
 #define COOLANT_FLOOD_PORT      GPIOB
