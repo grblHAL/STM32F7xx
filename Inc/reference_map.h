@@ -19,7 +19,6 @@
   along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
 */
 
-
 #if TRINAMIC_ENABLE
 #error "Trinamic plugin not supported!"
 #endif
@@ -36,41 +35,41 @@
 #define IS_NUCLEO_BOB
 
 // Define stepper driver enable/disable output pin.
-#define STEPPERS_ENABLE_PORT   GPIOF
-#define STEPPERS_ENABLE_PIN    12
+#define STEPPERS_ENABLE_PORT    GPIOF
+#define STEPPERS_ENABLE_PIN     12
 
 // Define step pulse output pins.
-#define X_STEP_PORT         GPIOE
-#define X_STEP_PIN          10
-#define Y_STEP_PORT         GPIOE
-#define Y_STEP_PIN          12
-#define Z_STEP_PORT         GPIOE
-#define Z_STEP_PIN          14
-#define STEP_OUTMODE        GPIO_SINGLE
+#define X_STEP_PORT             GPIOE
+#define X_STEP_PIN              10
+#define Y_STEP_PORT             GPIOE
+#define Y_STEP_PIN              12
+#define Z_STEP_PORT             GPIOE
+#define Z_STEP_PIN              14
+#define STEP_OUTMODE            GPIO_SINGLE
 #define STEP_MASK 0
 
 // Define step direction output pins.
-#define X_DIRECTION_PORT    GPIOE
-#define X_DIRECTION_PIN     11
-#define Y_DIRECTION_PORT    GPIOE
-#define Y_DIRECTION_PIN     9
-#define Z_DIRECTION_PORT    GPIOE
-#define Z_DIRECTION_PIN     13
-#define DIRECTION_OUTMODE   GPIO_SINGLE
+#define X_DIRECTION_PORT        GPIOE
+#define X_DIRECTION_PIN         11
+#define Y_DIRECTION_PORT        GPIOE
+#define Y_DIRECTION_PIN         9
+#define Z_DIRECTION_PORT        GPIOE
+#define Z_DIRECTION_PIN         13
+#define DIRECTION_OUTMODE       GPIO_SINGLE
 
 // Define homing/hard limit switch input pins.
-#define X_LIMIT_PORT        GPIOD
-#define X_LIMIT_PIN         15
-#define Y_LIMIT_PORT        GPIOD
-#define Y_LIMIT_PIN         14
+#define X_LIMIT_PORT            GPIOD
+#define X_LIMIT_PIN             15
+#define Y_LIMIT_PORT            GPIOD
+#define Y_LIMIT_PIN             14
 #if DRIVER_SPINDLE_PWM_ENABLE
-  #define Z_LIMIT_PORT      GPIOA
-  #define Z_LIMIT_PIN       6
+  #define Z_LIMIT_PORT          GPIOA
+  #define Z_LIMIT_PIN           6
 #else
-  #define Z_LIMIT_PORT      GPIOA
-  #define Z_LIMIT_PIN       7
+  #define Z_LIMIT_PORT          GPIOA
+  #define Z_LIMIT_PIN           7
 #endif
-#define LIMIT_INMODE        GPIO_SINGLE
+#define LIMIT_INMODE            GPIO_SINGLE
 
 #if N_ABC_MOTORS
 #define M3_AVAILABLE
@@ -156,8 +155,13 @@
 #define AUXOUTPUT3_PIN          5
 #define AUXOUTPUT4_PORT         GPIOB // spindle PWM
 #define AUXOUTPUT4_PIN          0
+#if DRIVER_SPINDLE_PWM_ENABLE
+#define AUXOUTPUT5_PORT         GPIOA // spindle enable
+#define AUXOUTPUT5_PIN          15
+#else
 #define AUXOUTPUT5_PORT         GPIOA // spindle enable
 #define AUXOUTPUT5_PIN          6
+#endif
 
 #if DRIVER_SPINDLE_ENABLE
 #define SPINDLE_ENABLE_PORT     AUXOUTPUT5_PORT
@@ -220,6 +224,13 @@
 #define SAFETY_DOOR_PIN         AUXINPUT3_PIN
 #endif
 
+#ifndef M4_AVAILABLE
+#define AUXOUTPUT0_PWM_PORT     GPIOE
+#define AUXOUTPUT0_PWM_PIN      5
+#define AUXOUTPUT1_PWM_PORT     GPIOE
+#define AUXOUTPUT1_PWM_PIN      6
+#endif
+
 #if I2C_STROBE_ENABLE
 #define I2C_STROBE_PORT         AUXINPUT1_PORT
 #define I2C_STROBE_PIN          AUXINPUT1_PIN
@@ -235,6 +246,5 @@
 #define MOTOR_WARNING_PORT      AUXINPUT2_PORT
 #define MOTOR_WARNING_PIN       AUXINPUT2_PIN
 #endif
-
 
 /**/

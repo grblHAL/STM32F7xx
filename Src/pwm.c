@@ -27,7 +27,7 @@ typedef struct {
     __IO uint32_t *ccr;
 } pwm_claimed_t;
 
-// CCR = CH == 1 11 CH == 2 ? 1 : 2
+// CCR = CH == 1 || CH == 2 ? 1 : 2
 // .timer = timer(N), .ccr = &timerCCR(N, CH), .ccmr = &timerCCMR(N, CCR), .af = timerAF(N, AF),
 // .en = timerCCEN(CH, ), .pol = timerCCP(CH, ), .ois = timerCR2OIS(CH, ), .ocm = timerOCM(CCR, CH), .ocmc = timerOCM(CCR, CH)
 
@@ -90,11 +90,11 @@ static const pwm_signal_t pwm_pin[] = {
     },
 #endif
     {
-        .port = GPIOE, .pin = 5, .timer = timer(9), .ccr = &timerCCR(3, 2), .ccmr = &timerCCMR(1, 1), .af = timerAF(9, 3),
+        .port = GPIOE, .pin = 5, .timer = timer(9), .ccr = &timerCCR(9, 1), .ccmr = &timerCCMR(9, 1), .af = timerAF(9, 3),
         .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1, ), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
     },
     {
-        .port = GPIOE, .pin = 6, .timer = timer(9), .ccr = &timerCCR(9, 1), .ccmr = &timerCCMR(9, 2), .af = timerAF(9, 3),
+        .port = GPIOE, .pin = 6, .timer = timer(9), .ccr = &timerCCR(9, 2), .ccmr = &timerCCMR(9, 1), .af = timerAF(9, 3),
         .en = timerCCEN(2, ), .pol = timerCCP(2, ), .ois = timerCR2OIS(2, ), .ocm = timerOCM(1, 2), .ocmc = timerOCM(1, 2)
     }
 };
@@ -147,7 +147,7 @@ const pwm_signal_t *pwm_claim (GPIO_TypeDef *port, uint8_t pin)
     return pwm;
 }
 
-bool pwm_enable (pwm_signal_t *pwm)
+bool pwm_enable (const pwm_signal_t *pwm)
 {
     switch((uint32_t)pwm->timer) {
 
@@ -181,7 +181,7 @@ bool pwm_enable (pwm_signal_t *pwm)
     return true;
 }
 
-bool pwm_config (pwm_signal_t *pwm, uint32_t prescaler, uint32_t period, bool inverted)
+bool pwm_config (const pwm_signal_t *pwm, uint32_t prescaler, uint32_t period, bool inverted)
 {
     pwm->timer->CR1 &= ~TIM_CR1_CEN;
 
@@ -214,4 +214,16 @@ bool pwm_config (pwm_signal_t *pwm, uint32_t prescaler, uint32_t period, bool in
     pwm->timer->CR1 |= TIM_CR1_CEN;
 
     return true;
+}
+
+uint32_t pwm_get_clock_hz (const pwm_signal_t *pwm)
+{
+    RCC_ClkInitTypeDef clock;
+    uint32_t latency;
+
+    HAL_RCC_GetClockConfig(&clock, &latency);
+
+    return pwm->timer == TIM1 || pwm->timer == TIM9 || pwm->timer == TIM11
+            ? HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider)
+            : HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider);
 }

@@ -36,6 +36,7 @@ typedef struct {
 } pwm_signal_t;
 
 const pwm_signal_t *pwm_claim (GPIO_TypeDef *port, uint8_t pin);
-bool pwm_enable (pwm_signal_t *pwm);
-bool pwm_config (pwm_signal_t *pwm, uint32_t prescaler, uint32_t period, bool inverted);
+bool pwm_enable (const pwm_signal_t *pwm);
+bool pwm_config (const pwm_signal_t *pwm, uint32_t prescaler, uint32_t period, bool inverted);
 bool pwm_is_available (GPIO_TypeDef *port, uint8_t pin);
+uint32_t pwm_get_clock_hz (const pwm_signal_t *pwm);

@@ -33,9 +33,90 @@ static input_signal_t *aux_in;
 static output_signal_t *aux_out;
 static volatile uint32_t event_bits;
 
+static void digital_out_pwm (struct xbar *output, float value)
+{
+    if(output->id < digital.out.n_ports) {
+
+        uint_fast16_t pwm_value = ioports_compute_pwm_value(&aux_out[output->id].pwm->data, value);
+        const pwm_signal_t *pwm = aux_out[output->id].pwm->port;
+
+        aux_out[output->id].pwm->value = value;
+
+        if(pwm_value == aux_out[output->id].pwm->data.off_value) {
+            if(aux_out[output->id].pwm->data.always_on) {
+                *pwm->ccr = aux_out[output->id].pwm->data.off_value;
+                if(pwm->timer == TIM1)
+                    pwm->timer->BDTR |= TIM_BDTR_MOE;
+                *pwm->ccr = 0;
+            } else {
+                if(pwm->timer == TIM1)
+                    pwm->timer->BDTR |= TIM_BDTR_MOE;
+                *pwm->ccr = 0;
+            }
+        } else {
+            *pwm->ccr = pwm_value;
+            if(pwm->timer == TIM1)
+                pwm->timer->BDTR |= TIM_BDTR_MOE;
+        }
+    }
+}
+
+static float digital_out_pwm_state (xbar_t *output)
+{
+    float value = -1.0f;
+
+    if(output->id < digital.out.n_ports)
+        value = aux_out[output->id].pwm->value;
+
+    return value;
+}
+
+static bool digital_out_pwm_cfg (xbar_t *output, pwm_config_t *config, bool persistent)
+{
+    bool ok;
+
+    if((ok = !!aux_out[output->id].pwm)) {
+
+        uint32_t prescaler = 0, clock_hz = pwm_get_clock_hz(aux_out[output->id].pwm->port);
+
+        do {
+            prescaler++;
+            ok = ioports_precompute_pwm_values(config, &aux_out[output->id].pwm->data, clock_hz / prescaler);
+        } while(ok && aux_out[output->id].pwm->data.period > 65530);
+
+        if(ok) {
+
+            pwm_config(aux_out[output->id].pwm->port, prescaler, aux_out[output->id].pwm->data.period, config->invert);
+
+            aux_out[output->id].mode.pwm = !config->servo_mode;
+            aux_out[output->id].mode.servo_pwm = config->servo_mode;
+
+            digital_out_pwm(output, config->min);
+        }
+    }
+
+    return ok;
+}
+
 static bool digital_out_cfg (xbar_t *output, gpio_out_config_t *config, bool persistent)
 {
-    if(output->id < digital.out.n_ports && !output->mode.pwm) {
+    if(output->id < digital.out.n_ports && aux_out[output->id].pwm == NULL) {
+
+        if(config->pwm && output->mode.claimed) {
+
+            pwm_out_t *pwm;
+
+            if((pwm = calloc(sizeof(pwm_out_t), 1))) {
+                if((pwm->port = pwm_claim((GPIO_TypeDef *)output->port, output->pin))) {
+                    pwm_enable(pwm->port);
+                    aux_out[output->id].pwm = pwm;
+                } else
+                    free(pwm);
+            }
+
+            if(aux_out[output->id].pwm == NULL)
+                return false;
+        }
 
         if(config->inverted != aux_out[output->id].mode.inverted) {
             aux_out[output->id].mode.inverted = config->inverted;
@@ -53,7 +134,7 @@ static bool digital_out_cfg (xbar_t *output, gpio_out_config_t *config, bool per
             ioport_save_output_settings(output, config);
     }
 
-    return aux_out->id < digital.out.n_ports;
+    return output->id < digital.out.n_ports;
 }
 
 static void digital_out (uint8_t port, bool on)
@@ -218,7 +299,12 @@ static xbar_t *get_pin_info (io_port_type_t type, io_port_direction_t dir, uint8
 
         if(dir == Port_Output && port < digital.out.n_ports) {
             XBAR_SET_DOUT_INFO(pin, ioports_map(digital.out, port), aux_out[pin.id], digital_out_cfg, digital_out_state);
-            pin.cap.pwm = pin.mode.pwm || pwm_is_available(aux_out[pin.id].port, aux_out[pin.id].pin);
+            if((pin.cap.pwm = !!aux_out[pin.id].pwm)) {
+                pin.config = digital_out_pwm_cfg;
+                pin.get_value = digital_out_pwm_state;
+                pin.set_value = digital_out_pwm;
+            } else
+                pin.cap.pwm = !pin.mode.claimed && pwm_is_available(aux_out[pin.id].port, aux_out[pin.id].pin);
             info = &pin;
         }
     }

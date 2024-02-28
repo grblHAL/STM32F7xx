@@ -102,102 +102,86 @@ static void enumerate_pins (bool low_level, pin_info_ptr pin_info, void *data)
 
 #if AUX_ANALOG_OUT
 
-typedef struct {
-    bool init_ok;
-    ioports_pwm_t data;
-    float value;
-    void (*set_value)(uint_fast8_t ch, float value);
-    pwm_signal_t *pwm;
-} pwm_out_t;
-
-static pwm_out_t pwm_out[AUX_ANALOG_OUT] = {0};
-
 static float pwm_get_value (xbar_t *output)
 {
-    return output->id < analog.out.n_ports ? pwm_out[output->id].value : -1.0f;
+    return output->id < analog.out.n_ports ? aux_out_analog[output->id].pwm->value : -1.0f;
+}
+
+static void pwm_out (uint8_t port, float value)
+{
+    if(port < analog.out.n_ports && aux_out_analog[port].pwm) {
+
+        uint_fast16_t pwm_value = ioports_compute_pwm_value(&aux_out_analog[port].pwm->data, value);
+        const pwm_signal_t *pwm = aux_out_analog[port].pwm->port;
+
+        aux_out_analog[port].pwm->value = value;
+
+        if(pwm_value == aux_out_analog[port].pwm->data.off_value) {
+            if(aux_out_analog[port].pwm->data.always_on) {
+                *pwm->ccr = aux_out_analog[port].pwm->data.off_value;
+                if(pwm->timer == TIM1)
+                    pwm->timer->BDTR |= TIM_BDTR_MOE;
+                *pwm->ccr = 0;
+            } else {
+                if(pwm->timer == TIM1)
+                    pwm->timer->BDTR |= TIM_BDTR_MOE;
+                *pwm->ccr = 0;
+            }
+        } else {
+            *pwm->ccr = pwm_value;
+            if(pwm->timer == TIM1)
+                pwm->timer->BDTR |= TIM_BDTR_MOE;
+        }
+    }
 }
 
 static bool analog_out (uint8_t port, float value)
 {
-    if(port < analog.out.n_ports) {
-
-        port = ioports_map(analog.out, port);
-
-        uint_fast8_t ch = aux_out_analog[port].id - Output_Analog_Aux0;
-
-        pwm_out[ch].set_value(ch, value);
-    }
+    if(port < analog.out.n_ports)
+        pwm_out(ioports_map(analog.out, port), value);
 
     return port < analog.out.n_ports;
-}
-
-static void pwm_vout (uint_fast8_t ch, float value)
-{
-    uint_fast16_t pwm_value = ioports_compute_pwm_value(&pwm_out[ch].data, value);
-
-    pwm_out[ch].value = value;
-
-    if(pwm_value == pwm_out[ch].data.off_value) {
-        if(pwm_out[ch].data.always_on) {
-            *pwm_out[ch].pwm->ccr = pwm_out[ch].data.off_value;
-            if(pwm_out[ch].pwm->timer == TIM1)
-                pwm_out[ch].pwm->timer->BDTR |= TIM_BDTR_MOE;
-            *pwm_out[ch].pwm->ccr = 0;
-        } else {
-            if(pwm_out[ch].pwm->timer == TIM1)
-                pwm_out[ch].pwm->timer->BDTR |= TIM_BDTR_MOE;
-            *pwm_out[ch].pwm->ccr = 0;
-        }
-    } else {
-        *pwm_out[ch].pwm->ccr = pwm_value;
-        if(pwm_out[ch].pwm->timer == TIM1)
-            pwm_out[ch].pwm->timer->BDTR |= TIM_BDTR_MOE;
-    }
 }
 
 static bool init_pwm (xbar_t *output, pwm_config_t *config, bool persistent)
 {
     bool ok;
-    RCC_ClkInitTypeDef clock;
-    uint32_t latency, prescaler = 0;
-    ioports_pwm_t *pwm_data = &pwm_out[output->id].data;
 
-    if(!pwm_out[output->id].init_ok) {
+    if(aux_out_analog[output->id].pwm == NULL) {
 
-        pwm_out[output->id].init_ok = true;
+        pwm_out_t *pwm;
 
-        if((pwm_out[output->id].pwm = pwm_claim((GPIO_TypeDef *)output->port, output->pin))) {
-            pwm_enable(pwm_out[output->id].pwm);
-            pwm_out[output->id].set_value = pwm_vout;
+        if((pwm = calloc(sizeof(pwm_out_t), 1))) {
+            if((pwm->port = pwm_claim((GPIO_TypeDef *)output->port, output->pin))) {
+                pwm_enable(pwm->port);
+                aux_out_analog[output->id].pwm = pwm;
+            } else
+                free(pwm);
         }
     }
 
-    if((ok = !!pwm_out[output->id].set_value)) {
+    if((ok = !!aux_out_analog[output->id].pwm)) {
 
-        HAL_RCC_GetClockConfig(&clock, &latency);
-
-        uint32_t clock_hz = pwm_out[output->id].pwm->timer == TIM1
-                             ? HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider)
-                             : HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider);
+        uint32_t prescaler = 0, clock_hz = pwm_get_clock_hz(aux_out_analog[output->id].pwm->port);
 
         do {
             prescaler++;
-            ok = ioports_precompute_pwm_values(config, pwm_data, clock_hz / prescaler);
-        } while(ok && pwm_data->period > 65530);
+            ok = ioports_precompute_pwm_values(config, &aux_out_analog[output->id].pwm->data, clock_hz / prescaler);
+        } while(ok && aux_out_analog[output->id].pwm->data.period > 65530);
 
         if(ok) {
 
-            pwm_config(pwm_out[output->id].pwm, prescaler, pwm_data->period, config->invert);
+            pwm_config(aux_out_analog[output->id].pwm->port, prescaler, aux_out_analog[output->id].pwm->data.period, config->invert);
 
             aux_out_analog[output->id].mode.pwm = !config->servo_mode;
             aux_out_analog[output->id].mode.servo_pwm = config->servo_mode;
 
-            pwm_vout(output->id, config->min);
+            pwm_out(output->id, config->min);
         }
     }
 
     if(!ok && !aux_out_analog[output->id].mode.claimed)
-        hal.port.claim(Port_Analog, Port_Output, &output->id, "Unavailable");
+        hal.port.claim(Port_Analog, Port_Output, &output->id, "N/A");
 
     return ok;
 }
@@ -418,6 +402,15 @@ void ioports_init_analog (pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_ou
 
     if(ioports_add(&analog, Port_Analog, aux_inputs->n_pins, aux_outputs->n_pins)) {
 
+        claim_digital = hal.port.claim;
+        hal.port.claim = claim;
+
+        get_pin_info_digital = hal.port.get_pin_info;
+        hal.port.get_pin_info = get_pin_info;
+
+//        swap_pins = hal.port.swap_pins;
+//        hal.port.swap_pins = swap_pins;
+
         if(p_pins) {
 
             GPIO_InitTypeDef gpio_init = {
@@ -510,14 +503,6 @@ void ioports_init_analog (pin_group_pins_t *aux_inputs, pin_group_pins_t *aux_ou
         }
 
 #endif // AUX_ANALOG_OUT
-
-        claim_digital = hal.port.claim;
-        hal.port.claim = claim;
-
-        get_pin_info_digital = hal.port.get_pin_info;
-        hal.port.get_pin_info = get_pin_info;
-//        swap_pins = hal.port.swap_pins;
-//        hal.port.swap_pins = swap_pins;
 
     } else
         hal.port.set_pin_description = set_pin_description_digital;

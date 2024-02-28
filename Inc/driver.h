@@ -319,6 +319,12 @@ typedef struct {
 } input_signal_t;
 
 typedef struct {
+    float value;
+    ioports_pwm_t data;
+    const pwm_signal_t *port;
+} pwm_out_t;
+
+typedef struct {
     pin_function_t id;
     GPIO_TypeDef *port;
     uint8_t pin;
@@ -326,7 +332,7 @@ typedef struct {
     pin_group_t group;
     pin_mode_t mode;
     const char *description;
-    pwm_signal_t *pwm_timer;
+    pwm_out_t *pwm;
 } output_signal_t;
 
 typedef struct {

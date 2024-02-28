@@ -1294,19 +1294,6 @@ static bool aux_claim_explicit (aux_ctrl_t *aux_ctrl)
     return aux_ctrl->aux_port != 0xFF;
 }
 
-void ioport_assign_out_function (aux_ctrl_out_t *aux_ctrl, pin_function_t *function)
-{
-    xbar_t *input;
-
-    if((input = hal.port.get_pin_info(Port_Digital, Port_Output, aux_ctrl->aux_port))) {
-
-        *function = aux_ctrl->function;
-/*
-        if(aux_ctrl->function == Input_Probe || xbar_fn_to_signals_mask(aux_ctrl->function).mask)
-            setting_remove_elements(Settings_IoPort_InvertIn, digital.inx.mask & ~(1 << input->id)); */
-    }
-}
-
 static bool aux_out_claim_explicit (aux_ctrl_out_t *aux_ctrl)
 {
 #ifdef DRIVER_SPINDLE_PWM_ENABLE
@@ -1475,14 +1462,7 @@ bool spindleConfig (spindle_ptrs_t *spindle)
 
     if(spindle_timer.timer) {
 
-        RCC_ClkInitTypeDef clock;
-        uint32_t latency, prescaler = 1, clock_hz;
-
-        HAL_RCC_GetClockConfig(&clock, &latency);
-
-        clock_hz = spindle_timer.timer == TIM1
-                    ? (HAL_RCC_GetPCLK2Freq() * TIMER_CLOCK_MUL(clock.APB2CLKDivider))
-                    : (HAL_RCC_GetPCLK1Freq() * TIMER_CLOCK_MUL(clock.APB1CLKDivider));
+        uint32_t prescaler = 1, clock_hz = pwm_get_clock_hz(&spindle_timer);
 
         if(spindle_precompute_pwm_values(spindle, &spindle_pwm, &settings.spindle, clock_hz / prescaler)) {
 
@@ -2441,7 +2421,7 @@ bool driver_init (void)
     HAL_RCC_GetClockConfig(&clock_cfg, &latency);
 
     hal.info = "STM32F756";
-    hal.driver_version = "240219";
+    hal.driver_version = "240227";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
