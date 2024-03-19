@@ -1,25 +1,23 @@
 /*
-
   main.c - driver code for STM32F7xx ARM processors
 
   Part of grblHAL
 
-  Copyright (c) 2021-2023 Terje Io
+  Copyright (c) 2021-2024 Terje Io
   Some parts (C) COPYRIGHT STMicroelectronics - code created by IDE
 
-  Grbl is free software: you can redistribute it and/or modify
+  grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation, either version 3 of the License, or
   (at your option) any later version.
 
-  Grbl is distributed in the hope that it will be useful,
+  grblHAL is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
   GNU General Public License for more details.
 
   You should have received a copy of the GNU General Public License
-  along with Grbl.  If not, see <http://www.gnu.org/licenses/>.
-
+  along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "main.h"
@@ -45,14 +43,38 @@ int main(void)
 
 void SystemClock_Config(void)
 {
+    __HAL_RCC_PWR_CLK_ENABLE();
+
 #if RTC_ENABLE
     /** Configure LSE Drive Capability */
     HAL_PWR_EnableBkUpAccess();
     __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
 #endif
 
+#ifdef STM32F765xx
+
+    __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
+
+    RCC_OscInitTypeDef RCC_OscInitStruct = {
+        .OscillatorType = RCC_OSCILLATORTYPE_HSE,
+        .HSEState = RCC_HSE_ON,
+        .PLL.PLLState = RCC_PLL_ON,
+        .PLL.PLLSource = RCC_PLLSOURCE_HSE,
+        .PLL.PLLM = 25,
+        .PLL.PLLN = 432,
+        .PLL.PLLP = RCC_PLLP_DIV2,
+        .PLL.PLLQ = 6,
+        .PLL.PLLR = 2
+    };
+
+    #define APB1CLKDIV RCC_HCLK_DIV4
+    #define APB2CLKDIV RCC_HCLK_DIV2
+
+    #define FLASH_LATENCY FLASH_LATENCY_7
+
+#else // F756
+
     /** Configure the main internal regulator output voltage  */
-    __HAL_RCC_PWR_CLK_ENABLE();
     __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
     RCC_OscInitTypeDef RCC_OscInitStruct = {
@@ -70,6 +92,14 @@ void SystemClock_Config(void)
         .PLL.PLLP       = RCC_PLLP_DIV2,
         .PLL.PLLQ       = 9
     };
+
+    #define APB1CLKDIV RCC_HCLK_DIV4
+    #define APB2CLKDIV RCC_HCLK_DIV2
+
+    #define FLASH_LATENCY FLASH_LATENCY_7
+
+#endif
+
     if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
       Error_Handler();
     }
@@ -84,10 +114,10 @@ void SystemClock_Config(void)
         .ClockType      = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK|RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2,
         .SYSCLKSource   = RCC_SYSCLKSOURCE_PLLCLK,
         .AHBCLKDivider  = RCC_SYSCLK_DIV1,
-        .APB1CLKDivider = RCC_HCLK_DIV4,
-        .APB2CLKDivider = RCC_HCLK_DIV2
+        .APB1CLKDivider = APB1CLKDIV,
+        .APB2CLKDivider = APB2CLKDIV
     };
-    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_7) != HAL_OK) {
+    if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY) != HAL_OK) {
       Error_Handler();
     }
 

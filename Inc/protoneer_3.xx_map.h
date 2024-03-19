@@ -111,8 +111,6 @@ Z-Limit      A4
 #define M3_DIRECTION_PIN        5
 #endif
 
-#define AUX_CONTROLS_OUT
-
 #if N_ABC_MOTORS == 0
 #define AUXOUTPUT2_PORT         GPIOF // A4 - spindle on
 #define AUXOUTPUT2_PIN          5

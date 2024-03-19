@@ -20,6 +20,7 @@
   along with grblHAL. If not, see <http://www.gnu.org/licenses/>.
 */
 
+#pragma once
 
 typedef struct {
     uint8_t pin;

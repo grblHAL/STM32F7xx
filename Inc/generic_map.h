@@ -78,8 +78,6 @@
 
 // Define driver spindle pins
 
-#define AUX_CONTROLS_OUT
-
 #define AUXOUTPUT0_PORT         GPIOB // spindle dir
 #define AUXOUTPUT0_PIN          0
 #define AUXOUTPUT1_PORT         GPIOA // spindle PWM

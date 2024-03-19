@@ -113,8 +113,6 @@ Z-Limit      D12
 
 // Define spindle enable, direction and PWM output pins.
 
-#define AUX_CONTROLS_OUT
-
 #if ETHERNET_ENABLE && (MODBUS_ENABLE & MODBUS_RTU_ENABLED)
 #define AUXOUTPUT2_PORT         GPIOA // D12 - spindle on
 #define AUXOUTPUT2_PIN          6

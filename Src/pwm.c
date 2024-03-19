@@ -32,16 +32,6 @@ typedef struct {
 // .en = timerCCEN(CH, ), .pol = timerCCP(CH, ), .ois = timerCR2OIS(CH, ), .ocm = timerOCM(CCR, CH), .ocmc = timerOCM(CCR, CH)
 
 static const pwm_signal_t pwm_pin[] = {
-#if (!SPINDLE_ENCODER_ENABLE || PPI_ENABLE)
-    {
-        .port = GPIOA, .pin = 3, .timer = timer(2), .ccr = &timerCCR(2, 4), .ccmr = &timerCCMR(2, 2), .af = timerAF(2, 1),
-        .en = timerCCEN(4, ), .pol = timerCCP(4, ), .ois = timerCR2OIS(4, ), .ocm = timerOCM(2, 4), .ocmc = timerOCM(2, 4)
-    },
-    {
-        .port = GPIOA, .pin = 5, .timer = timer(2), .ccr = &timerCCR(2, 1), .ccmr = &timerCCMR(2, 1), .af = timerAF(2, 1),
-        .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1,), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
-    },
-#endif
 #if !ETHERNET_ENABLE
     {
         .port = GPIOA, .pin = 7, .timer = timer(1), .ccr = &timerCCR(1, 1), .ccmr = &timerCCMR(1, 1), .af = timerAF(1, 1),
@@ -57,14 +47,29 @@ static const pwm_signal_t pwm_pin[] = {
         .en = timerCCEN(2, N), .pol = timerCCP(2, N), .ois = timerCR2OIS(2, N), .ocm = timerOCM(1, 2), .ocmc = timerOCM(1, 2)
     },
 #if (!SPINDLE_ENCODER_ENABLE || PPI_ENABLE)
-
     {
-        .port = GPIOB, .pin = 2, .timer = timer(2), .ccr = &timerCCR(1, 4), .ccmr = &timerCCMR(1, 1), .af = timerAF(1, 1),
+        .port = GPIOA, .pin = 3, .timer = timer(2), .ccr = &timerCCR(2, 4), .ccmr = &timerCCMR(2, 2), .af = timerAF(2, 1),
         .en = timerCCEN(4, ), .pol = timerCCP(4, ), .ois = timerCR2OIS(4, ), .ocm = timerOCM(2, 4), .ocmc = timerOCM(2, 4)
     },
     {
-        .port = GPIOB, .pin = 3, .timer = timer(2), .ccr = &timerCCR(1, 2), .ccmr = &timerCCMR(1, 1), .af = timerAF(1, 1),
+        .port = GPIOA, .pin = 5, .timer = timer(2), .ccr = &timerCCR(2, 1), .ccmr = &timerCCMR(2, 1), .af = timerAF(2, 1),
+        .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1,), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
+    },
+    {
+        .port = GPIOB, .pin = 2, .timer = timer(2), .ccr = &timerCCR(1, 4), .ccmr = &timerCCMR(1, 1), .af = timerAF(2, 1),
+        .en = timerCCEN(4, ), .pol = timerCCP(4, ), .ois = timerCR2OIS(4, ), .ocm = timerOCM(2, 4), .ocmc = timerOCM(2, 4)
+    },
+    {
+        .port = GPIOB, .pin = 3, .timer = timer(2), .ccr = &timerCCR(1, 2), .ccmr = &timerCCMR(1, 1), .af = timerAF(2, 1),
         .en = timerCCEN(2, ), .pol = timerCCP(2, ), .ois = timerCR2OIS(2, ), .ocm = timerOCM(1, 2), .ocmc = timerOCM(1, 2)
+    },
+    {
+        .port = GPIOB, .pin = 10, .timer = timer(2), .ccr = &timerCCR(2, 3), .ccmr = &timerCCMR(2, 2), .af = timerAF(2, 1),
+        .en = timerCCEN(3, ), .pol = timerCCP(3, ), .ois = timerCR2OIS(3, ), .ocm = timerOCM(2, 3), .ocmc = timerOCM(2, 3)
+    },
+    {
+        .port = GPIOB, .pin = 11, .timer = timer(2), .ccr = &timerCCR(2, 4), .ccmr = &timerCCMR(2, 2), .af = timerAF(2, 1),
+        .en = timerCCEN(4, ), .pol = timerCCP(4, ), .ois = timerCR2OIS(4, ), .ocm = timerOCM(2, 4), .ocmc = timerOCM(2, 4)
     },
 #endif
 #if !SPINDLE_ENCODER_ENABLE
@@ -72,18 +77,6 @@ static const pwm_signal_t pwm_pin[] = {
         .port = GPIOB, .pin = 4, .timer = timer(3), .ccr = &timerCCR(3, 1), .ccmr = &timerCCMR(3, 1), .af = timerAF(3, 2),
         .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1, ), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
     },
-#endif
-    {
-        .port = GPIOB, .pin = 9, .timer = timer(11), .ccr = &timerCCR(1, 1), .ccmr = &timerCCMR(11, 1), .af = timerAF(11, 3),
-        .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1, ), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
-    },
-#if (!SPINDLE_ENCODER_ENABLE || PPI_ENABLE)
-    {
-        .port = GPIOB, .pin = 10, .timer = timer(2), .ccr = &timerCCR(2, 3), .ccmr = &timerCCMR(2, 2), .af = timerAF(2, 1),
-        .en = timerCCEN(3, ), .pol = timerCCP(3, ), .ois = timerCR2OIS(3, ), .ocm = timerOCM(2, 3), .ocmc = timerOCM(2, 3)
-    },
-#endif
-#if !SPINDLE_ENCODER_ENABLE
     {
         .port = GPIOC, .pin = 8, .timer = timer(3), .ccr = &timerCCR(3, 3), .ccmr = &timerCCMR(3, 2), .af = timerAF(3, 2),
         .en = timerCCEN(3, ), .pol = timerCCP(3, ), .ois = timerCR2OIS(3, ), .ocm = timerOCM(2, 3), .ocmc = timerOCM(2, 3)
@@ -96,6 +89,10 @@ static const pwm_signal_t pwm_pin[] = {
     {
         .port = GPIOE, .pin = 6, .timer = timer(9), .ccr = &timerCCR(9, 2), .ccmr = &timerCCMR(9, 1), .af = timerAF(9, 3),
         .en = timerCCEN(2, ), .pol = timerCCP(2, ), .ois = timerCR2OIS(2, ), .ocm = timerOCM(1, 2), .ocmc = timerOCM(1, 2)
+    },
+    {
+        .port = GPIOB, .pin = 9, .timer = timer(11), .ccr = &timerCCR(11, 1), .ccmr = &timerCCMR(11, 1), .af = timerAF(11, 3),
+        .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1, ), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
     }
 };
 
@@ -164,7 +161,7 @@ bool pwm_enable (const pwm_signal_t *pwm)
             __HAL_RCC_TIM9_CLK_ENABLE();
             break;
         case TIM11_BASE:
-            __HAL_RCC_TIM1_CLK_ENABLE();
+            __HAL_RCC_TIM11_CLK_ENABLE();
             break;
     }
 
