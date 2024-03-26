@@ -56,10 +56,6 @@ static const pwm_signal_t pwm_pin[] = {
         .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1,), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
     },
     {
-        .port = GPIOB, .pin = 2, .timer = timer(2), .ccr = &timerCCR(1, 4), .ccmr = &timerCCMR(1, 1), .af = timerAF(2, 1),
-        .en = timerCCEN(4, ), .pol = timerCCP(4, ), .ois = timerCR2OIS(4, ), .ocm = timerOCM(2, 4), .ocmc = timerOCM(2, 4)
-    },
-    {
         .port = GPIOB, .pin = 3, .timer = timer(2), .ccr = &timerCCR(1, 2), .ccmr = &timerCCMR(1, 1), .af = timerAF(2, 1),
         .en = timerCCEN(2, ), .pol = timerCCP(2, ), .ois = timerCR2OIS(2, ), .ocm = timerOCM(1, 2), .ocmc = timerOCM(1, 2)
     },
@@ -90,10 +86,12 @@ static const pwm_signal_t pwm_pin[] = {
         .port = GPIOE, .pin = 6, .timer = timer(9), .ccr = &timerCCR(9, 2), .ccmr = &timerCCMR(9, 1), .af = timerAF(9, 3),
         .en = timerCCEN(2, ), .pol = timerCCP(2, ), .ois = timerCR2OIS(2, ), .ocm = timerOCM(1, 2), .ocmc = timerOCM(1, 2)
     },
+#if !(I2C_ENABLE && I2C_PORT == 1)
     {
         .port = GPIOB, .pin = 9, .timer = timer(11), .ccr = &timerCCR(11, 1), .ccmr = &timerCCMR(11, 1), .af = timerAF(11, 3),
         .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1, ), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
     }
+#endif
 };
 
 uint_fast8_t n_claimed = 0;
