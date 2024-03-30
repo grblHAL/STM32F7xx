@@ -2260,8 +2260,11 @@ bool driver_init (void)
 #if SPINDLE_SYNC_ENABLE
     hal.driver_cap.spindle_sync = On;
 #endif
+#ifdef COOLANT_FLOOD_PIN
+    hal.coolant_cap.flood = On;
+#endif
 #ifdef COOLANT_MIST_PIN
-    hal.driver_cap.mist_control = On;
+    hal.coolant_cap.mist = On;
 #endif
     hal.driver_cap.software_debounce = On;
     hal.driver_cap.step_pulse_delay = On;
