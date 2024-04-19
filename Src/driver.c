@@ -44,9 +44,15 @@
 #endif
 
 #if SDCARD_ENABLE
+
 #include "sdcard/sdcard.h"
 #include "ff.h"
 #include "diskio.h"
+
+#if !SDCARD_SDIO
+extern void disk_timerproc (void);
+#endif
+
 #endif
 
 #if USB_SERIAL_CDC
