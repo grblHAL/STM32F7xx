@@ -21,7 +21,7 @@
 
 #include "driver.h"
 
-#if ETHERNET_ENABLE
+#if ETHERNET_ENABLE && !defined(_WIZCHIP_)
 
 #include <math.h>
 #include <stdio.h>
@@ -622,4 +622,4 @@ bool enet_init (network_settings_t *settings)
     return nvs_address != 0;
 }
 
-#endif
+#endif // ETHERNET_ENABLE
