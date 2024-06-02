@@ -147,6 +147,39 @@ static DMA_HandleTypeDef spi_dma_tx = {
     .Init.FIFOMode = DMA_FIFOMODE_DISABLE
 };
 
+#elif SPI_PORT == 4
+
+#define DMA_RX_IRQ DMAirq(2, 0)
+#define DMA_TX_IRQ DMAirq(2, 1)
+#define DMA_RX_IRQ_HANDLER DMAhandler(2, 0)
+#define DMA_TX_IRQ_HANDLER DMAhandler(2, 1)
+
+static DMA_HandleTypeDef spi_dma_rx = {
+    .Instance = DMA2_Stream0,
+    .Init.Channel = DMA_CHANNEL_4,
+    .Init.Direction = DMA_PERIPH_TO_MEMORY,
+    .Init.PeriphInc = DMA_PINC_DISABLE,
+    .Init.MemInc = DMA_MINC_ENABLE,
+    .Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE,
+    .Init.MemDataAlignment = DMA_PDATAALIGN_BYTE,
+    .Init.Mode = DMA_NORMAL,
+    .Init.Priority = DMA_PRIORITY_VERY_HIGH,
+    .Init.FIFOMode = DMA_FIFOMODE_DISABLE
+};
+
+static DMA_HandleTypeDef spi_dma_tx = {
+    .Instance = DMA2_Stream1,
+    .Init.Channel = DMA_CHANNEL_4,
+    .Init.Direction = DMA_MEMORY_TO_PERIPH,
+    .Init.PeriphInc = DMA_PINC_DISABLE,
+    .Init.MemInc = DMA_MINC_ENABLE,
+    .Init.PeriphDataAlignment = DMA_PDATAALIGN_BYTE,
+    .Init.MemDataAlignment = DMA_PDATAALIGN_BYTE,
+    .Init.Mode = DMA_NORMAL,
+    .Init.Priority = DMA_PRIORITY_VERY_HIGH,
+    .Init.FIFOMode = DMA_FIFOMODE_DISABLE
+};
+
 #endif
 
 void spi_init (void)
@@ -172,7 +205,7 @@ void spi_init (void)
         HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
         static const periph_pin_t sck = {
-            .function = Output_SCK,
+            .function = Output_SPICLK,
             .group = PinGroup_SPI,
             .port = GPIOA,
             .pin = 5,
@@ -210,7 +243,7 @@ void spi_init (void)
         HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
         static const periph_pin_t sck = {
-            .function = Output_SCK,
+            .function = Output_SPICLK,
             .group = PinGroup_SPI,
             .port = GPIOB,
             .pin = 13,
@@ -248,7 +281,7 @@ void spi_init (void)
         HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
         static const periph_pin_t sck = {
-            .function = Output_SCK,
+            .function = Output_SPICLK,
             .group = PinGroup_SPI,
             .port = GPIOC,
             .pin = 10,
@@ -274,6 +307,7 @@ void spi_init (void)
 #elif SPI_PORT == 4
 
         __HAL_RCC_SPI4_CLK_ENABLE();
+        __HAL_RCC_DMA2_CLK_ENABLE();
 
         GPIO_InitTypeDef GPIO_InitStruct = {
             .Pin = GPIO_PIN_2|GPIO_PIN_5|GPIO_PIN_6,
@@ -285,7 +319,7 @@ void spi_init (void)
         HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
         static const periph_pin_t sck = {
-            .function = Output_SCK,
+            .function = Output_SPICLK,
             .group = PinGroup_SPI,
             .port = GPIOE,
             .pin = 2,
