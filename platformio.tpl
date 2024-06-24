@@ -64,6 +64,19 @@ lib_deps =
    Drivers/BSP/Components/lan8742
 lib_extra_dirs =
 
+[wiznet_networking]
+build_flags =
+  -I networking/wiznet
+  -I Middlewares/Third_Party/LwIP/src/include
+  -I Middlewares/Third_Party/LwIP/system
+  -I Middlewares/Third_Party/LwIP/src/include/netif
+  -I Middlewares/Third_Party/LwIP/src/include/lwip
+lib_deps =
+   networking
+   webui
+   Middlewares/Third_Party/LwIP
+lib_extra_dirs =
+
 [env]
 platform = ststm32
 framework = stm32cube
