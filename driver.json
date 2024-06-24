@@ -21,6 +21,7 @@
     "mpg_mode": 1,
     "sdcard": 1,
     "ethernet": 1,
+    "wiznet": 1,
     "mcp3221_adc": 1,
     "pio_board": "nucleo_f756zg",
     "ldscript": "STM32F756ZGTX_FLASH.ld",
@@ -82,6 +83,7 @@
         "digital_in": 3,
         "digital_out": 4,
         "ethernet": 1,
+        "wiznet": 1,
         "sdcard": 1,
         "webui": 1
       }
