@@ -44,8 +44,8 @@
 // If none are specified the default PWM spindle is instantiated.
 // Spindle definitions can be found in grbl/spindle_control.h.
 // More here https://github.com/grblHAL/Plugins_spindle
-//#define SPINDLE0_ENABLE         SPINDLE_HUANYANG1
-//#define SPINDLE1_ENABLE         SPINDLE_PWM0
+//#define SPINDLE0_ENABLE         SPINDLE_PWM0
+//#define SPINDLE1_ENABLE         SPINDLE_PWM1_NODIR
 //#define SPINDLE2_ENABLE         SPINDLE_NONE
 //#define SPINDLE3_ENABLE         SPINDLE_NONE
 // **********************
@@ -54,9 +54,10 @@
 //#define WEBUI_AUTH_ENABLE       1 // Enable ESP3D-WEBUI authentication.
 //#define WEBUI_INFLASH           1 // Store WebUI files in flash instead of on SD card.
 //#define ETHERNET_ENABLE         1 // Ethernet streaming. Uses networking plugin.
+//#define _WIZCHIP_            5500 // Enables ethernet via WIZnet breakout connected via SPI. Set to 5500 for W5500 chip, 5105 for W5100S.
 //#define BLUETOOTH_ENABLE        2 // Set to 2 for HC-05 module. Uses Bluetooth plugin.
 //#define SDCARD_ENABLE           1 // Run gcode programs from SD card. Set to 2 to enable YModem upload.
-//#define MPG_ENABLE              1 // Enable MPG interface. Requires a serial port and means to switch between normal and MPG mode.
+//#define MPG_ENABLE              2 // Enable MPG interface. Requires a serial port and means to switch between normal and MPG mode.
                                     // 1: Mode switching is by handshake pin input unless the keypad plugin is enabled in mode 2 which
                                     //    uses mode switching by the CMD_MPG_MODE_TOGGLE (0x8B) command character.
                                     // 2: Mode switching is by the CMD_MPG_MODE_TOGGLE command character. The keypad plugin is not required.
@@ -79,6 +80,10 @@
 //#define EEPROM_IS_FRAM          1 // Uncomment when EEPROM is enabled and chip is FRAM, this to remove write delay.
 //#define ESTOP_ENABLE            0 // When enabled only real-time report requests will be executed when the reset pin is asserted.
                                     // NOTE: if left commented out the default setting is determined from COMPATIBILITY_LEVEL.
+//#define MCP3221_ENABLE    0x4D    // Enable MCP3221 I2C ADC input with address 0x4D (0b01001101).
+
+//#define SPINDLE_SYNC_ENABLE           1 // Plasma (THC) plugin. To be completed.
+
 // Optional control signals:
 // These will be assigned to aux input pins. Use the $pins command to check which pins are assigned.
 // NOTE: If not enough pins are available assignment will silently fail.
@@ -109,7 +114,7 @@
 //#define Z_GANGED_LIM_MAX    1
 
 #if ETHERNET_ENABLE || WEBUI_ENABLE
-//#define TELNET_ENABLE       1 // Telnet daemon - requires Ethernet streaming enabled.
+#define TELNET_ENABLE       1 // Telnet daemon - requires Ethernet streaming enabled.
 //#define WEBSOCKET_ENABLE    1 // Websocket daemon - requires Ethernet streaming enabled.
 //#define MDNS_ENABLE         1 // mDNS daemon.
 //#define SSDP_ENABLE         1 // SSDP daemon - requires HTTP enabled.

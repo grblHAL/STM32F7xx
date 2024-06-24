@@ -231,7 +231,7 @@ void spi_init (void)
 #elif SPI_PORT == 2
 
         __HAL_RCC_SPI2_CLK_ENABLE();
-        __HAL_RCC_DMA2_CLK_ENABLE();
+        __HAL_RCC_DMA1_CLK_ENABLE();
 
         GPIO_InitTypeDef GPIO_InitStruct = {
             .Pin = GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15,

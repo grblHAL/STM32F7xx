@@ -27,11 +27,20 @@
 
 #define BOARD_NAME "grblHAL reference map"
 
+#if SDCARD_ENABLE
+//#define SD_CS_PORT              GPIOC
+//#define SD_CS_PIN               8
+#define SDCARD_SDIO             1
+#endif
 
-#define SERIAL_PORT    32   // GPIOD: TX = 8, RX = 9
-#define SERIAL1_PORT    1   // GPIOC: TX = 6, RX = 7
-#define I2C_PORT        1   // GPIOB: SCL = 8, SDA = 9
-#define SPI_PORT        3   // GPIOC: SCK = 10, MISO - 11, MOSI - 12
+#define SERIAL_PORT            32   // GPIOD: TX = 8, RX = 9
+#define SERIAL1_PORT            1   // GPIOC: TX = 6, RX = 7
+#define I2C_PORT                1   // GPIOB: SCL = 8, SDA = 9
+#ifdef SDCARD_SDIO
+#define SPI_PORT                2   // GOPIB: SCK = 13, MISO - 14, MOSI - 15
+#else
+#define SPI_PORT                3   // GPIOC: SCK = 10, MISO - 11, MOSI - 12
+#endif
 #define IS_NUCLEO_BOB
 
 // Define stepper driver enable/disable output pin.
@@ -203,12 +212,6 @@
 
 #define CONTROL_INMODE          GPIO_SINGLE
 
-#if SDCARD_ENABLE
-//#define SD_CS_PORT              GPIOC
-//#define SD_CS_PIN               8
-#define SDCARD_SDIO             1
-#endif
-
 #define AUXINPUT0_PORT          GPIOE
 #define AUXINPUT0_PIN           15
 #define AUXINPUT1_PORT          GPIOD
@@ -248,6 +251,17 @@
 #elif MOTOR_FAULT_ENABLE
 #define MOTOR_FAULT_PORT        AUXINPUT1_PORT
 #define MOTOR_FAULT_PIN         AUXINPUT1_PIN
+#endif
+
+#if ETHERNET_ENABLE && defined(_WIZCHIP_)
+#undef SPI_ENABLE
+#define SPI_ENABLE              1
+#define SPI_CS_PORT             GPIOA // CS_JOG_SW
+#define SPI_CS_PIN              4
+#define SPI_IRQ_PORT            GPIOB // RXD_INT
+#define SPI_IRQ_PIN             12
+#define SPI_RST_PORT            GPIOB // TXD_INT
+#define SPI_RST_PIN             3
 #endif
 
 #if MPG_MODE == 1
