@@ -179,8 +179,16 @@ static void low_level_init(struct netif *netif)
 
   uint8_t mac[6];
 
-  if(bmac_eth_get(mac))
+  if(networking_ismemnull(&netif->hwaddr, 6) && bmac_eth_get(mac))
       heth.Init.MACAddr = &mac[0];
+  else {
+      heth.Init.MACAddr[0] = netif->hwaddr[0];
+      heth.Init.MACAddr[1] = netif->hwaddr[1];
+      heth.Init.MACAddr[2] = netif->hwaddr[2];
+      heth.Init.MACAddr[3] = netif->hwaddr[3];
+      heth.Init.MACAddr[4] = netif->hwaddr[4];
+      heth.Init.MACAddr[5] = netif->hwaddr[5];
+  }
 
   /* USER CODE END MACADDRESS */
 
