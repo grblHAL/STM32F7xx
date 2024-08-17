@@ -264,12 +264,16 @@
 #define SPI_RST_PIN             3
 #endif
 
-#if MPG_MODE == 1
+#if MPG_ENABLE == 1
 #define MPG_MODE_PORT           AUXINPUT2_PORT
 #define MPG_MODE_PIN            AUXINPUT2_PIN
 #elif MOTOR_WARNING_ENABLE
 #define MOTOR_WARNING_PORT      AUXINPUT2_PORT
 #define MOTOR_WARNING_PIN       AUXINPUT2_PIN
 #endif
-
+/*
+#define CAN_PORT                GPIOD
+#define CAN_RX_PIN              0
+#define CAN_TX_PIN              1
+*/
 /**/
