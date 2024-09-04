@@ -49,10 +49,6 @@
 #include "ff.h"
 #include "diskio.h"
 
-#if !SDCARD_SDIO
-extern void disk_timerproc (void);
-#endif
-
 #endif
 
 #if USB_SERIAL_CDC
@@ -2266,7 +2262,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "240812";
+    hal.driver_version = "240903";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2462,6 +2458,11 @@ bool driver_init (void)
 
 #if ETHERNET_ENABLE
     enet_init();
+#endif
+
+#ifdef NEOPIXEL_SPI
+    extern void neopixel_init (void);
+    neopixel_init();
 #endif
 
 #include "grbl/plugins_init.h"
@@ -2881,14 +2882,6 @@ void EXTI15_10_IRQHandler(void)
 // Interrupt handler for 1 ms interval timer
 void Driver_IncTick (void)
 {
-#if SDCARD_ENABLE && !SDCARD_SDIO
-    static uint32_t fatfs_ticks = 10;
-    if(!(--fatfs_ticks)) {
-        disk_timerproc();
-        fatfs_ticks = 10;
-    }
-#endif
-
     if(delay.ms && !(--delay.ms)) {
         if(delay.callback) {
             delay.callback();

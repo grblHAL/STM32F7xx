@@ -26,6 +26,12 @@
 #include "diskio.h"
 #include "spi.h"
 
+#include "grbl/task.h"
+
+#ifndef SDCARD_USE_DMA
+#define SDCARD_USE_DMA 1
+#endif
+
 /* Definitions for MMC/SDC command */
 #define CMD0    (0x40+0)    /* GO_IDLE_STATE */
 #define CMD1    (0x40+1)    /* SEND_OP_COND */
@@ -91,11 +97,15 @@ BYTE PowerFlag = 0;     /* indicates if "power" is on */
 
 #define rcvr_spi() (BYTE)spi_get_byte()
 
+#if !SDCARD_USE_DMA
+
 static
 void rcvr_spi_m (BYTE *dst)
 {
     *dst = rcvr_spi();
 }
+
+#endif
 
 /*-----------------------------------------------------------------------*/
 /* Wait for card ready                                                   */
@@ -137,6 +147,28 @@ void send_initial_clock_train(void)
 }
 
 /*-----------------------------------------------------------------------*/
+/* Device Timer Interrupt Procedure  (Platform dependent)                */
+/*-----------------------------------------------------------------------*/
+/* This function must be called in period of 10ms                        */
+
+void disk_timerproc (void)
+{
+    static uint32_t fatfs_ticks = 10;
+
+    if(!(--fatfs_ticks)) {
+
+        BYTE n;
+
+        n = Timer1;                        /* 100Hz decrement timer */
+        if (n) Timer1 = --n;
+        n = Timer2;
+        if (n) Timer2 = --n;
+
+        fatfs_ticks = 10;
+    }
+}
+
+/*-----------------------------------------------------------------------*/
 /* Power Control  (Platform dependent)                                   */
 /*-----------------------------------------------------------------------*/
 /* When the target system does not support socket power control, there   */
@@ -151,8 +183,10 @@ void power_on (void)
      */
 
     spi_init();
-
-    PowerFlag = 1;
+    if(!PowerFlag) {
+        task_add_systick(disk_timerproc, NULL);
+        PowerFlag = 1;
+    }
 }
 
 // set the SSI speed to the max setting
@@ -162,7 +196,10 @@ void power_on (void)
 static
 void power_off (void)
 {
-    PowerFlag = 0;
+    if(PowerFlag) {
+        task_delete_systick(disk_timerproc, NULL);
+        PowerFlag = 0;
+    }
 }
 
 static
@@ -189,10 +226,16 @@ BOOL rcvr_datablock (
     } while ((token == 0xFF) && Timer1);
     if(token != 0xFE) return FALSE;    /* If not valid data token, retutn with error */
 
+#if SDCARD_USE_DMA
+    memset(buff, 0xFF, btr);
+    spi_read((uint8_t *)buff, btr); /* Receive the data block into buffer */
+#else
     do {                            /* Receive the data block into buffer */
         rcvr_spi_m(buff++);
         rcvr_spi_m(buff++);
     } while (btr -= 2);
+#endif
+
     rcvr_spi();                        /* Discard CRC */
     rcvr_spi();
 
@@ -219,11 +262,15 @@ BOOL xmit_datablock (
 
     xmit_spi(token);                    /* Xmit data token */
     if (token != 0xFD) {    /* Is data token */
+#if SDCARD_USE_DMA
+        spi_write((uint8_t *)buff, 512); /* Xmit the 512 byte data block to MMC */
+#else
         wc = 0;
         do {                            /* Xmit the 512 byte data block to MMC */
             xmit_spi(*buff++);
             xmit_spi(*buff++);
         } while (--wc);
+#endif
         xmit_spi(0xFF);                    /* CRC (Dummy) */
         xmit_spi(0xFF);
         resp = rcvr_spi();                /* Reveive data response */
@@ -598,26 +645,6 @@ DRESULT disk_ioctl (
     }
 
     return res;
-}
-
-
-
-/*-----------------------------------------------------------------------*/
-/* Device Timer Interrupt Procedure  (Platform dependent)                */
-/*-----------------------------------------------------------------------*/
-/* This function must be called in period of 10ms                        */
-
-void disk_timerproc (void)
-{
-//    BYTE n, s;
-    BYTE n;
-
-
-    n = Timer1;                        /* 100Hz decrement timer */
-    if (n) Timer1 = --n;
-    n = Timer2;
-    if (n) Timer2 = --n;
-
 }
 
 #endif // SDCARD_SDIO

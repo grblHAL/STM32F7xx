@@ -109,15 +109,15 @@
 #endif
 
 #if defined(BOARD_PROTONEER_3XX)
-  #include "protoneer_3.xx_map.h"
+  #include "boards/protoneer_3.xx_map.h"
 #elif defined(BOARD_GENERIC_UNO)
-  #include "uno_map.h"
+  #include "boards/uno_map.h"
 #elif defined(BOARD_REFERENCE)
-  #include "reference_map.h"
+  #include "boards/reference_map.h"
 #elif defined(BOARD_MY_MACHINE)
-  #include "my_machine_map.h"
+  #include "boards/my_machine_map.h"
 #else // default board
-  #include "generic_map.h"
+  #include "boards/generic_map.h"
 #endif
 
 #if DRIVER_SPINDLE_ENABLE && !defined(SPINDLE_ENABLE_PIN)
