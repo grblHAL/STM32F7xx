@@ -285,7 +285,7 @@ inline static void spindle1_on (spindle_ptrs_t *spindle)
 inline static void spindle1_dir (bool ccw)
 {
 #ifdef SPINDLE1_DIRECTION_PIN
-    DIGITAL_OUT(SPINDLE_DIRECTION_PORT, SPINDLE_DIRECTION_BIT, ccw ^ spindle_config->cfg.invert.ccw);
+    DIGITAL_OUT(SPINDLE1_DIRECTION_PORT, SPINDLE1_DIRECTION_BIT, ccw ^ spindle_config->cfg.invert.ccw);
 #else
     UNUSED(ccw);
 #endif
@@ -294,7 +294,7 @@ inline static void spindle1_dir (bool ccw)
 // Start or stop spindle
 static void spindle1SetState (spindle_ptrs_t *spindle, spindle_state_t state, float rpm)
 {
-    if (!state.on)
+    if (!state.on || rpm == 0.0f)
         spindle1_off();
     else {
         spindle1_dir(state.ccw);
