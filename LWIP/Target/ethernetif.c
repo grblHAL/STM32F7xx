@@ -34,9 +34,6 @@
 /* Within 'USER CODE' section, code will be kept by default at each generation */
 /* USER CODE BEGIN 0 */
 #include "networking/networking.h"
-
-#if ETHERNET_ENABLE || WIFI_ENABLE
-
 /* USER CODE END 0 */
 
 /* Private define ------------------------------------------------------------*/
@@ -180,6 +177,8 @@ static void low_level_init(struct netif *netif)
 
   /* USER CODE BEGIN MACADDRESS */
 
+#if ETHERNET_ENABLE
+
   uint8_t mac[6];
 
   if(!networking_ismemnull(&netif->hwaddr, 6)) {
@@ -191,6 +190,7 @@ static void low_level_init(struct netif *netif)
       heth.Init.MACAddr[5] = netif->hwaddr[5];
   } else if(bmac_eth_get(mac))
       heth.Init.MACAddr = &mac[0];
+#endif
 
   /* USER CODE END MACADDRESS */
 
@@ -797,8 +797,5 @@ __weak void ethernetif_notify_conn_changed(struct netif *netif)
   */
 
 }
-
-#endif
-
 /* USER CODE END 8 */
 
