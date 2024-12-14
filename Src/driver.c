@@ -2511,6 +2511,33 @@ uint32_t get_free_mem (void)
     return stack_limit - (uint32_t)&_end - mallinfo().uordblks;
 }
 
+#if USB_SERIAL_CDC
+
+static status_code_t enter_dfu (sys_state_t state, char *args)
+{
+    extern uint8_t _estack; /* Symbol defined in the linker script */
+
+    report_message("Entering DFU Bootloader", Message_Warning);
+    hal.delay_ms(100, NULL);
+
+    uint32_t *addr = (uint32_t *)(((uint32_t)&_estack - 1) & 0xFFFFFFE0);
+
+    __disable_irq();
+    *addr = 0xDEADBEEF;
+    __disable_irq();
+    NVIC_SystemReset();
+
+    return Status_OK;
+}
+
+static void onReportOptions (bool newopt)
+{
+    if(!newopt)
+        hal.stream.write("[PLUGIN:Bootloader Entry v0.02]" ASCII_EOL);
+}
+
+#endif
+
 // Initialize HAL pointers, setup serial comms and enable EEPROM
 // NOTE: grblHAL is not yet configured (from EEPROM data), driver_setup() will be called when done
 
@@ -2555,7 +2582,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "241208";
+    hal.driver_version = "241214";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2754,6 +2781,25 @@ bool driver_init (void)
         hal.stepper.output_step = stepperOutputStep;
         hal.stepper.claim_motor = stepperClaimMotor;
     }
+#endif
+
+#if USB_SERIAL_CDC
+
+    // register $DFU bootloader command
+
+    static const sys_command_t boot_command_list[] = {
+        {"DFU", enter_dfu, { .noargs = On }, { .str = "enter DFU bootloader" } }
+    };
+
+    static sys_commands_t boot_commands = {
+        .n_commands = sizeof(boot_command_list) / sizeof(sys_command_t),
+        .commands = boot_command_list
+    };
+
+    grbl.on_report_options = onReportOptions;
+
+    system_register_commands(&boot_commands);
+
 #endif
 
 #if ETHERNET_ENABLE
