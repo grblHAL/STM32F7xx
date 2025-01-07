@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2019-2024 Terje Io
+  Copyright (c) 2019-2025 Terje Io
 
   grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -680,13 +680,12 @@ inline static __attribute__((always_inline)) void stepperSetStepOutputs (axes_si
     if(axes.bits) {
 
         uint_fast8_t idx, mask = 1;
-        axes_signals_t step = { .bits = step_out.bits };
 
         step_out.bits ^= settings.steppers.step_invert.bits;
 
         for(idx = 0; idx < N_AXIS; idx++) {
 
-            if((step.bits & mask) && !(axes.bits & mask)) switch(idx) {
+            if(!(axes.bits & mask)) switch(idx) {
 
                 case X_AXIS:
                     DIGITAL_OUT(X_STEP_PORT, X_STEP_BIT, step_out.x);
@@ -1837,11 +1836,6 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
             spindle_encoder.maximum_tt = 250000UL / RPM_TIMER_RESOLUTION; // 250ms
             spindle_encoder.rpm_factor = (60.0f * 1000000.0f / RPM_TIMER_RESOLUTION) / (float)spindle_encoder.ppr;
             spindleDataReset();
-
-            if(on_spindle_programmed == NULL) {
-                on_spindle_programmed = grbl.on_spindle_programmed;
-                grbl.on_spindle_programmed = onSpindleProgrammed;
-            }
         } else {
             spindle_encoder.ppr = 0;
             hal.spindle_data.reset = NULL;
@@ -2553,7 +2547,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "241231";
+    hal.driver_version = "250107";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
