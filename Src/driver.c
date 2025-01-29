@@ -2198,6 +2198,8 @@ static bool sdcard_unmount (FATFS **fs)
 
 static char *sdcard_mount (FATFS **fs)
 {
+    static FATFS *fs_sdio = NULL;
+
     MX_FATFS_Init();
 
     if(!bus_ok)
@@ -2207,13 +2209,13 @@ static char *sdcard_mount (FATFS **fs)
         return NULL;
 
     if(fs) {
-        if(*fs == NULL)
-            *fs = malloc(sizeof(FATFS));
+        if(fs_sdio == NULL)
+            fs_sdio = malloc(sizeof(FATFS));
 
-        if(*fs && f_mount(*fs, SDPath, 1) != FR_OK) {
-           free(*fs );
+        if(fs_sdio && f_mount(fs_sdio, SDPath, 1) == FR_OK)
+            *fs = fs_sdio;
+        else
            *fs = NULL;
-        }
     }
 
     return SDPath;
@@ -2547,7 +2549,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "250121";
+    hal.driver_version = "250129";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
