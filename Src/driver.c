@@ -1112,14 +1112,15 @@ static void stepperPulseStartSynchronized (stepper_t *stepper)
 
 static inline __attribute__((always_inline)) void inject_step (axes_signals_t step_out, axes_signals_t axes)
 {
-    uint_fast8_t idx = N_AXIS - 1, mask = 1 << (N_AXIS - 1);
+    uint_fast8_t idx = N_AXIS - 1;
+
+    if(!step_out.bits)
+        step_pulse.inject.axes.bits = step_pulse.inject.claimed.bits;
 
     step_out.bits ^= settings.steppers.step_invert.bits;
 
     do {
-        if(axes.bits & mask) {
-
-            axes.bits ^= mask;
+        if(axes.bits & (1 << (N_AXIS - 1))) {
 
             switch(idx) {
 
@@ -1171,33 +1172,33 @@ static inline __attribute__((always_inline)) void inject_step (axes_signals_t st
             }
         }
         idx--;
-        mask >>= 1;
-    } while(axes.bits);
+        axes.bits <<= 1;
+    } while(axes.bits & AXES_BITMASK);
 }
 
 static void stepperClaimMotor (uint_fast8_t axis_id, bool claim)
 {
     if(claim)
         step_pulse.inject.claimed.mask |= ((1 << axis_id) & AXES_BITMASK);
-    else
+    else {
         step_pulse.inject.claimed.mask &= ~(1 << axis_id);
+        step_pulse.inject.axes.bits = step_pulse.inject.claimed.bits;
+    }
 }
 
 void stepperOutputStep (axes_signals_t step_out, axes_signals_t dir_out)
 {
     if(step_out.bits) {
 
-        uint_fast8_t idx = N_AXIS - 1, mask = 1 << (N_AXIS - 1);
-        axes_signals_t axes = { .bits = step_out.bits };
+        uint_fast8_t idx = N_AXIS - 1;
+        axes_signals_t axes = { .bits = (step_out.bits & AXES_BITMASK) };
 
         step_pulse.inject.out = step_out;
         step_pulse.inject.axes.bits = step_pulse.inject.claimed.bits | step_out.bits;
         dir_out.bits ^= settings.steppers.dir_invert.bits;
 
         do {
-            if(axes.bits & mask) {
-
-                axes.bits ^= mask;
+            if(axes.bits & (1 << (N_AXIS - 1))) {
 
                 switch(idx) {
 
@@ -1249,8 +1250,8 @@ void stepperOutputStep (axes_signals_t step_out, axes_signals_t dir_out)
                 }
             }
             idx--;
-            mask >>= 1;
-        } while(axes.bits);
+            axes.bits <<= 1;
+        } while(axes.bits & AXES_BITMASK);
 
         if(step_pulse.delay == 0)
             inject_step(step_out, step_out);
@@ -2549,7 +2550,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "250129";
+    hal.driver_version = "250201";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2783,7 +2784,7 @@ bool driver_init (void)
     // register $DFU bootloader command
 
     static const sys_command_t boot_command_list[] = {
-        {"DFU", enter_dfu, { .noargs = On }, { .str = "enter DFU bootloader" } }
+        {"DFU", enter_dfu, { .allow_blocking = On, .noargs = On }, { .str = "enter DFU bootloader" } }
     };
 
     static sys_commands_t boot_commands = {
