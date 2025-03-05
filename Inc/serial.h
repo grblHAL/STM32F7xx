@@ -23,7 +23,7 @@
 
 /*
 
-1  - GPIOA: TX =  9, RX = 10
+1  - GPIOA: TX =  9, RX = 10 - Nucleo-144: cannot be used with USB CDC enabled
 11 - GPIOB: TX =  6, RX =  7
 2  - GPIOA: TX =  2, RX =  3 - Nucleo-144: cannot be used with ethernet enabled
 21 - GPIOD: TX =  5, RX =  6

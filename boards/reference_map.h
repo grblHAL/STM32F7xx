@@ -34,7 +34,12 @@
 #endif
 
 #define SERIAL_PORT            32   // GPIOD: TX = 8, RX = 9
-#define SERIAL1_PORT            1   // GPIOC: TX = 6, RX = 7
+#if USB_SERIAL_CDC
+#define SERIAL1_PORT           11   // GPIOB: TX = 6, RX = 7
+#define COPROC_STREAM           1
+#else
+#define SERIAL1_PORT            1   // GPIOA: TX = 9, RX = 10
+#endif
 #define I2C_PORT                1   // GPIOB: SCL = 8, SDA = 9
 #ifdef SDCARD_SDIO
 #define SPI_PORT                2   // GOPIB: SCK = 13, MISO - 14, MOSI - 15
@@ -208,6 +213,13 @@
 #if COOLANT_ENABLE & COOLANT_MIST
 #define COOLANT_MIST_PORT       AUXOUTPUT7_PORT
 #define COOLANT_MIST_PIN        AUXOUTPUT7_PIN
+#endif
+
+#if ESP_AT_ENABLE && !(DRIVER_SPINDLE1_ENABLE & SPINDLE_ENA)
+#define COPROC_RESET_PORT       AUXOUTPUT1_PORT
+#define COPROC_RESET_PIN        AUXOUTPUT1_PIN
+#define COPROC_BOOT0_PORT       AUXOUTPUT2_PORT
+#define COPROC_BOOT0_PIN        AUXOUTPUT2_PIN
 #endif
 
 // Define user-control CONTROLs (cycle start, reset, feed hold) input pins.

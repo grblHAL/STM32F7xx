@@ -32,7 +32,7 @@
 
 #define AUX_DEVICES // until all drivers are converted?
 #ifndef AUX_CONTROLS
-#define AUX_CONTROLS (AUX_CONTROL_SPINDLE|AUX_CONTROL_COOLANT)
+#define AUX_CONTROLS (AUX_CONTROL_SPINDLE|AUX_CONTROL_COOLANT|COPROC_PASSTHRU)
 #endif
 
 #include "grbl/protocol.h"
@@ -380,15 +380,24 @@ static output_signal_t outputpin[] = {
 #ifdef AUXOUTPUT7_PORT
     { .id = Output_Aux7,               .port = AUXOUTPUT7_PORT,        .pin = AUXOUTPUT7_PIN,        .group = PinGroup_AuxOutput },
 #endif
+#ifdef AUXOUTPUT8_PORT
+    { .id = Output_Aux8,               .port = AUXOUTPUT8_PORT,        .pin = AUXOUTPUT8_PIN,        .group = PinGroup_AuxOutput },
+#endif
+#ifdef AUXOUTPUT9_PORT
+    { .id = Output_Aux9,               .port = AUXOUTPUT9_PORT,        .pin = AUXOUTPUT9_PIN,        .group = PinGroup_AuxOutput },
+#endif
+#ifdef AUXOUTPUT10_PORT
+    { .id = Output_Aux10,              .port = AUXOUTPUT10_PORT,       .pin = AUXOUTPUT10_PIN,       .group = PinGroup_AuxOutput },
+#endif
 #ifdef AUXOUTPUT0_ANALOG_PORT
-    { .id = Output_Analog_Aux0,     .port = AUXOUTPUT0_ANALOG_PORT, .pin = AUXOUTPUT0_ANALOG_PIN,   .group = PinGroup_AuxOutputAnalog },
+    { .id = Output_Analog_Aux0,     .port = AUXOUTPUT0_ANALOG_PORT, .pin = AUXOUTPUT0_ANALOG_PIN,    .group = PinGroup_AuxOutputAnalog },
 #elif defined(AUXOUTPUT0_PWM_PORT)
-    { .id = Output_Analog_Aux0,     .port = AUXOUTPUT0_PWM_PORT,    .pin = AUXOUTPUT0_PWM_PIN,      .group = PinGroup_AuxOutputAnalog, .mode = { PINMODE_PWM } },
+    { .id = Output_Analog_Aux0,     .port = AUXOUTPUT0_PWM_PORT,    .pin = AUXOUTPUT0_PWM_PIN,       .group = PinGroup_AuxOutputAnalog, .mode = { PINMODE_PWM } },
 #endif
 #ifdef AUXOUTPUT1_ANALOG_PORT
-    { .id = Output_Analog_Aux1,     .port = AUXOUTPUT1_ANALOG_PORT, .pin = AUXOUTPUT1_ANALOG_PIN,   .group = PinGroup_AuxOutputAnalog },
+    { .id = Output_Analog_Aux1,     .port = AUXOUTPUT1_ANALOG_PORT, .pin = AUXOUTPUT1_ANALOG_PIN,    .group = PinGroup_AuxOutputAnalog },
 #elif defined(AUXOUTPUT1_PWM_PORT)
-    { .id = Output_Analog_Aux1,     .port = AUXOUTPUT1_PWM_PORT,    .pin = AUXOUTPUT1_PWM_PIN,      .group = PinGroup_AuxOutputAnalog, .mode = { PINMODE_PWM } }
+    { .id = Output_Analog_Aux1,     .port = AUXOUTPUT1_PWM_PORT,    .pin = AUXOUTPUT1_PWM_PIN,       .group = PinGroup_AuxOutputAnalog, .mode = { PINMODE_PWM } }
 #endif
 };
 
@@ -2547,7 +2556,23 @@ static void onReportOptions (bool newopt)
         report_plugin("Bootloader Entry", "0.02");
 }
 
+#if ESP_AT_ENABLE
+
+#include "grbl/stream_passthru.h"
+
+void stream_passthru_enter (void)
+{
+    __IO uint8_t *addr = (__IO uint8_t *)(BKPSRAM_BASE);
+    *addr = 0xA5;
+
+    SCB_CleanDCache_by_Addr((uint32_t *)addr, 1);
+    NVIC_SystemReset();
+}
+
 #endif
+
+#endif // USB_SERIAL_CDC
+
 
 // Initialize HAL pointers, setup serial comms and enable EEPROM
 // NOTE: grblHAL is not yet configured (from EEPROM data), driver_setup() will be called when done
@@ -2589,7 +2614,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "250228";
+    hal.driver_version = "2500303";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2840,6 +2865,29 @@ bool driver_init (void)
 #ifdef NEOPIXEL_SPI
     extern void neopixel_init (void);
     neopixel_init();
+#endif
+
+#if USB_SERIAL_CDC && ESP_AT_ENABLE
+
+    #include "grbl/stream_passthru.h"
+
+    HAL_PWR_EnableBkUpAccess();
+    __HAL_RCC_BKPSRAM_CLK_ENABLE();
+
+    bool enterpt = (*(__IO uint8_t *)(BKPSRAM_BASE)) == 0xA5;
+
+    if(enterpt) {
+
+    	*(__IO uint8_t *) (BKPSRAM_BASE) = 0;
+
+        // Reduce USB IRQ priority to lower than the UART port!
+        HAL_NVIC_DisableIRQ(OTG_HS_IRQn);
+        HAL_NVIC_SetPriority(OTG_HS_IRQn, 1, 0);
+        HAL_NVIC_EnableIRQ(OTG_HS_IRQn);
+    }
+
+    stream_passthru_init(COPROC_STREAM, 115200, enterpt);
+
 #endif
 
 #include "grbl/plugins_init.h"
