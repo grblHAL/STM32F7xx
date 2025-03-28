@@ -36,6 +36,7 @@ _Min_Stack_Size = 0x3000;	/* required amount of stack */
 /* Memories definition */
 MEMORY
 {
+  ITCMRAM (xrw)     : ORIGIN = 0x00000000, LENGTH = 16K
   RAM    (xrw)    : ORIGIN = 0x20000000,   LENGTH = 320K
   BOOT_FLASH    (rx)    : ORIGIN = 0x8000000,   LENGTH = 32K
   EEPROM_EMUL(xrw)      : ORIGIN = 0x8008000,   LENGTH = 32K
@@ -169,6 +170,18 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >RAM
+
+  _siitcmram = LOADADDR(.itcmram);
+  /* ITCMRAM section */
+  .itcmram :
+  {
+    . = ALIGN(4);
+    _sitcmram = .; /* define a global symbols at itcmram start */
+    *(.itcmram)
+    *(.itcmram*)
+    . = ALIGN(4);
+    _eitcmram = .; /* define a global symbols at itcmram end */
+  } >ITCMRAM AT> FLASH
 
   /* Remove information from the compiler libraries */
   /DISCARD/ :

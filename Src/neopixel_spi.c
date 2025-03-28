@@ -329,7 +329,7 @@ void neopixel_init (void)
 
         HAL_DMA_Init(&spi_dma_tx);
 
-        HAL_NVIC_SetPriority(DMA_TX_IRQ, 0, 0);
+        HAL_NVIC_SetPriority(DMA_TX_IRQ, 1, 0);
         HAL_NVIC_EnableIRQ(DMA_TX_IRQ);
 
         hal.periph_port.register_pin(&sdi);

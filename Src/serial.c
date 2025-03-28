@@ -661,13 +661,13 @@ static const io_stream_t *serialInit (uint32_t baud_rate)
 
     serialSetBaudRate(baud_rate);
 
-    HAL_NVIC_SetPriority(UART0_IRQ, 0, 0);
+    HAL_NVIC_SetPriority(UART0_IRQ, 1, 0);
     HAL_NVIC_EnableIRQ(UART0_IRQ);
 
     return &stream;
 }
 
-void UART0_IRQHandler (void)
+ISR_CODE void UART0_IRQHandler (void)
 {
     if(UART0->ISR & USART_ISR_RXNE) {
         uint32_t data = UART0->RDR;
@@ -892,13 +892,13 @@ static const io_stream_t *serial1Init (uint32_t baud_rate)
 
     serial1SetBaudRate(baud_rate);
 
-    HAL_NVIC_SetPriority(UART1_IRQ, 0, 0);
+    HAL_NVIC_SetPriority(UART1_IRQ, 1, 0);
     HAL_NVIC_EnableIRQ(UART1_IRQ);
 
     return &stream;
 }
 
-void UART1_IRQHandler (void)
+ISR_CODE void UART1_IRQHandler (void)
 {
     if(UART1->ISR & USART_ISR_RXNE) {
         uint32_t data = UART1->RDR;
@@ -1123,13 +1123,13 @@ static const io_stream_t *serial2Init (uint32_t baud_rate)
 
     serial2SetBaudRate(baud_rate);
 
-    HAL_NVIC_SetPriority(UART2_IRQ, 0, 0);
+    HAL_NVIC_SetPriority(UART2_IRQ, 1, 0);
     HAL_NVIC_EnableIRQ(UART2_IRQ);
 
     return &stream;
 }
 
-void UART2_IRQHandler (void)
+ISR_CODE void UART2_IRQHandler (void)
 {
     if(UART2->ISR & USART_ISR_RXNE) {
         uint32_t data = UART2->RDR;
