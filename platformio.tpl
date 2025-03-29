@@ -21,7 +21,7 @@ build_flags =
   -D _USE_IOCTL=1
   -D _USE_WRITE=1
   -D _VOLUMES=1
-  -D ISR_CODE=__attribute__((section(".itcmram")))
+  '-D ISR_CODE=__attribute__((section(".itcmram")))'
   -Wl,-u,_printf_float
   -Wl,-u,_scanf_float
 lib_deps =
