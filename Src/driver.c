@@ -2848,6 +2848,8 @@ bool driver_init (void)
         ioports_init_analog(&aux_analog_in, &aux_analog_out);
 #endif
 
+    io_expanders_init();
+
 #if AUX_CONTROLS_ENABLED
     aux_ctrl_claim_ports(aux_claim_explicit, NULL);
 #endif
@@ -2916,11 +2918,6 @@ bool driver_init (void)
 
     stream_passthru_init(COPROC_STREAM, 115200, enterpt);
 
-#endif
-
-#if MCP3221_ENABLE_NEW
-    extern void mcp3221_init (void);
-    mcp3221_init();
 #endif
 
 #include "grbl/plugins_init.h"
