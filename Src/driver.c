@@ -1375,7 +1375,7 @@ static control_signals_t systemGetState (void)
   #endif
     signals.feed_hold = !!(bits & FEED_HOLD_BIT);
     signals.cycle_start = !!(bits & CYCLE_START_BIT);
-#else
+#elif CONTROL_MASK
     signals.value &= ~(CONTROL_MASK >> CONTROL_INMODE);
     signals.value |= (uint16_t)((CONTROL_PORT->IDR & CONTROL_MASK) >> CONTROL_INMODE);
   #if ESTOP_ENABLE
@@ -2520,7 +2520,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "250423";
+    hal.driver_version = "250514";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
