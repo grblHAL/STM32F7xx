@@ -70,6 +70,10 @@ static const pwm_signal_t pwm_pin[] = {
 #endif
 #if !IS_TIMER_CLAIMED(TIM3_BASE)
     {
+        .port = GPIOB, .pin = 1, .timer = timer(3), .ccr = &timerCCR(3, 4), .ccmr = &timerCCMR(3, 2), .af = timerAF(3, 2),
+        .en = timerCCEN(4, ), .pol = timerCCP(4, ), .ois = timerCR2OIS(4, ), .ocm = timerOCM(2, 4), .ocmc = timerOCM(2, 4)
+    },
+    {
         .port = GPIOB, .pin = 4, .timer = timer(3), .ccr = &timerCCR(3, 1), .ccmr = &timerCCMR(3, 1), .af = timerAF(3, 2),
         .en = timerCCEN(1, ), .pol = timerCCP(1, ), .ois = timerCR2OIS(1, ), .ocm = timerOCM(1, 1), .ocmc = timerOCM(1, 1)
     },

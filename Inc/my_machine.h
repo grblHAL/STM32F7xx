@@ -23,7 +23,7 @@
 // If none is enabled pin mappings from generic_map.h will be used.
 //#define BOARD_PROTONEER_3XX   // For use with a Nucleo-F756ZG board.
 //#define BOARD_GENERIC_UNO     // For use with a Nucleo-F756ZG board.
-//#define BOARD_REFERENCE       // grblHAL reference board map.
+#define BOARD_REFERENCE       // grblHAL reference board map.
 //#define BOARD_MY_MACHINE      // Add my_machine_map.h before enabling this!
 
 #if defined(NUCLEO_F756)
@@ -51,10 +51,10 @@
 //#define SPINDLE_OFFSET          1 // Uncomment to enable settings for laser spindle XY-offset.
 // **********************
 //#define MODBUS_ENABLE           1 // Set to 1 for auto direction, 2 for direction signal on auxiliary output pin.
-//#define WEBUI_ENABLE            3 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
+#define WEBUI_ENABLE            3 // Enable ESP3D-WEBUI plugin along with networking and SD card plugins.
 //#define WEBUI_AUTH_ENABLE       1 // Enable ESP3D-WEBUI authentication.
 //#define WEBUI_INFLASH           1 // Store WebUI files in flash instead of on SD card.
-//#define ETHERNET_ENABLE         1 // Ethernet streaming. Uses networking plugin.
+#define ETHERNET_ENABLE         1 // Ethernet streaming. Uses networking plugin.
 //#define _WIZCHIP_            5500 // Enables ethernet via WIZnet breakout connected via SPI. Set to 5500 for W5500 chip, 5105 for W5100S.
 //#define BLUETOOTH_ENABLE        2 // Set to 2 for HC-05 module. Uses Bluetooth plugin.
 //#define SDCARD_ENABLE           1 // Run gcode programs from SD card. Set to 2 to enable YModem upload.

@@ -115,6 +115,10 @@
 #endif
 #endif
 
+#ifndef CONTROL_ENABLE
+#define CONTROL_ENABLE (CONTROL_HALT|CONTROL_FEED_HOLD|CONTROL_CYCLE_START)
+#endif
+
 #if defined(BOARD_PROTONEER_3XX)
   #include "boards/protoneer_3.xx_map.h"
 #elif defined(BOARD_GENERIC_UNO)
