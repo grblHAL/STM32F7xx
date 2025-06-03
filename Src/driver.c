@@ -2492,6 +2492,8 @@ uint32_t get_free_mem (void)
 
 #if USB_SERIAL_CDC
 
+static on_report_options_ptr on_report_options;
+
 static status_code_t enter_dfu (sys_state_t state, char *args)
 {
     extern uint8_t _estack; /* Symbol defined in the linker script */
@@ -2511,6 +2513,8 @@ static status_code_t enter_dfu (sys_state_t state, char *args)
 
 static void onReportOptions (bool newopt)
 {
+    on_report_options(newopt);
+
     if(!newopt)
         report_plugin("Bootloader Entry", "0.02");
 }
@@ -2798,6 +2802,7 @@ bool driver_init (void)
 #if USB_SERIAL_CDC
 
     // register $DFU bootloader command
+    on_report_options = grbl.on_report_options;
 
     static const sys_command_t boot_command_list[] = {
         {"DFU", enter_dfu, { .allow_blocking = On, .noargs = On }, { .str = "enter DFU bootloader" } }
