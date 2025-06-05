@@ -37,6 +37,7 @@ lib_deps =
   sdcard
   spindle
   FatFs
+  Startup
   Drivers/FATFS/App
   Drivers/FATFS/Target
   USB_DEVICE/App
