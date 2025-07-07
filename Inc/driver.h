@@ -208,7 +208,7 @@
                                     ((INSTANCE) == RPM_COUNTER_BASE))
 
 // Adjust these values to get more accurate step pulse timings when required, e.g if using high step rates.
-// The default values below are calibrated for 5 microsecond pulses on a F446 @ 180 MHz.
+// The default values below are calibrated for 5 microsecond pulses on a F756 @ 180 MHz.
 // NOTE: step output mode, number of axes and compiler optimization setting may all affect these values.
 
 // Minimum pulse off time.
