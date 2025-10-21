@@ -29,6 +29,7 @@ lib_deps =
   grbl
   eeprom
   fans
+  plugins
   keypad
   laser
   motors
