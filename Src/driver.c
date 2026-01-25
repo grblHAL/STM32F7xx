@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2019-2025 Terje Io
+  Copyright (c) 2019-2026 Terje Io
 
   grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -64,13 +64,12 @@
 #include "enet.h"
 #endif
 
-#define DRIVER_IRQMASK (LIMIT_MASK|DEVICES_IRQ_MASK)
-
-#if DRIVER_IRQMASK != (LIMIT_MASK_SUM+DEVICES_IRQ_MASK_SUM)
+#if (LIMIT_MASK|CONTROL_MASK|DEVICES_IRQ_MASK) != (LIMIT_MASK_SUM+CONTROL_MASK_SUM+DEVICES_IRQ_MASK_SUM)
 #error Interrupt enabled input pins must have unique pin numbers!
 #endif
 
 #define STEPPER_TIMER_DIV 4
+#define DRIVER_IRQMASK (LIMIT_MASK|DEVICES_IRQ_MASK)
 
 #if SPINDLE_ENCODER_ENABLE
 
@@ -126,6 +125,9 @@ static input_signal_t inputpin[] = {
 #ifdef V_LIMIT_PIN
     { .id = Input_LimitV,         .port = V_LIMIT_PORT,       .pin = V_LIMIT_PIN,         .group = PinGroup_Limit },
 #endif
+#ifdef W_LIMIT_PIN
+    { .id = Input_LimitW,         .port = W_LIMIT_PORT,       .pin = W_LIMIT_PIN,         .group = PinGroup_Limit },
+#endif
 #ifdef X_LIMIT_PIN_MAX
     { .id = Input_LimitX_Max,     .port = X_LIMIT_PORT_MAX,   .pin = X_LIMIT_PIN_MAX,     .group = PinGroup_LimitMax },
 #endif
@@ -149,6 +151,9 @@ static input_signal_t inputpin[] = {
 #endif
 #ifdef V_LIMIT_PIN_MAX
     { .id = Input_LimitV_Max,     .port = V_LIMIT_PORT_MAX,   .pin = V_LIMIT_PIN_MAX,     .group = PinGroup_LimitMax },
+#endif
+#ifdef W_LIMIT_PIN_MAX
+    { .id = Input_LimitW_Max,     .port = W_LIMIT_PORT_MAX,   .pin = W_LIMIT_PIN_MAX,     .group = PinGroup_Limit },
 #endif
 #if SPINDLE_SYNC_ENABLE
     { .id = Input_SpindleIndex,   .port = SPINDLE_INDEX_PORT, .pin = SPINDLE_INDEX_PIN,   .group = PinGroup_SpindleIndex },
@@ -220,6 +225,9 @@ static output_signal_t outputpin[] = {
 #ifdef V_AXIS
     { .id = Output_StepV,              .port = V_STEP_PORT,            .pin = V_STEP_PIN,            .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
 #endif
+#ifdef W_AXIS
+    { .id = Output_StepW,              .port = W_STEP_PORT,            .pin = W_STEP_PIN,            .group = PinGroup_StepperStep,   .mode = {STEP_PINMODE} },
+#endif
     { .id = Output_DirX,               .port = X_DIRECTION_PORT,       .pin = X_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
     { .id = Output_DirY,               .port = Y_DIRECTION_PORT,       .pin = Y_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
     { .id = Output_DirZ,               .port = Z_DIRECTION_PORT,       .pin = Z_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
@@ -246,6 +254,9 @@ static output_signal_t outputpin[] = {
 #endif
 #ifdef V_AXIS
     { .id = Output_DirV,               .port = V_DIRECTION_PORT,       .pin = V_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
+#endif
+#ifdef W_AXIS
+    { .id = Output_DirW,               .port = W_DIRECTION_PORT,       .pin = W_DIRECTION_PIN,       .group = PinGroup_StepperDir,    .mode = {DIRECTION_PINMODE} },
 #endif
 #ifdef STEPPERS_POWER_PORT
     { .id = Output_StepperPower,       .port = STEPPERS_POWER_PORT,    .pin = STEPPERS_POWER_PIN,    .group = PinGroup_StepperPower },
@@ -277,6 +288,9 @@ static output_signal_t outputpin[] = {
 #endif
 #ifdef V_ENABLE_PORT
     { .id = Output_StepperEnableU,     .port = V_ENABLE_PORT,          .pin = V_ENABLE_PIN,          .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
+#endif
+#ifdef W_ENABLE_PORT
+    { .id = Output_StepperEnableW,     .port = W_ENABLE_PORT,          .pin = W_ENABLE_PIN,          .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
 #endif
 #ifdef X2_ENABLE_PIN
     { .id = Output_StepperEnableX,     .port = X2_ENABLE_PORT,         .pin = X2_ENABLE_PIN,         .group = PinGroup_StepperEnable, .mode = {STEPPERS_ENABLE_PINMODE} },
@@ -415,7 +429,7 @@ static struct {
 #endif
 } step_pulse = {};
 
-#ifdef SAFETY_DOOR_PIN
+#ifdef SAFETY_DOOR_PIN || defined(QEI_SELECT_PIN)
 static pin_debounce_t debounce;
 #endif
 static void aux_irq_handler (uint8_t port, bool state);
@@ -515,6 +529,9 @@ static void stepperEnable (axes_signals_t enable, bool hold)
   #endif
   #ifdef V_ENABLE_PORT
     DIGITAL_OUT(V_ENABLE_PORT, V_ENABLE_BIT, enable.u);
+  #endif
+  #ifdef W_ENABLE_PORT
+    DIGITAL_OUT(W_ENABLE_PORT, W_ENABLE_PIN, enable.w);
   #endif
  #endif
 #endif
@@ -620,6 +637,11 @@ inline static __attribute__((always_inline)) void stepper_step_out (axes_signals
                         DIGITAL_OUT(V_STEP_PORT, V_STEP_BIT, step_out1.v);
                         break;
 #endif
+#ifdef W_AXIS
+                    case W_AXIS:
+                        DIGITAL_OUT(W_STEP_PORT, W_STEP_BIT, step_out1.w);
+                        break;
+#endif
                 }
             }
             mask <<= 1;
@@ -649,7 +671,10 @@ inline static __attribute__((always_inline)) void stepper_step_out (axes_signals
     DIGITAL_OUT(U_STEP_PORT, U_STEP_BIT, step_out1.u);
   #endif
   #ifdef V_AXIS
-      DIGITAL_OUT(V_STEP_PORT, V_STEP_BIT, step_out1.v);
+    DIGITAL_OUT(V_STEP_PORT, V_STEP_BIT, step_out1.v);
+  #endif
+  #ifdef W_AXIS
+    DIGITAL_OUT(W_STEP_PORT, W_STEP_BIT, step_out1.w);
   #endif
 #elif STEP_OUTMODE == GPIO_MAP
     STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | step_outmap[step_out1.value & motors_1.value];
@@ -734,6 +759,11 @@ inline static __attribute__((always_inline)) void stepper_step_out (axes_signals
                     DIGITAL_OUT(V_STEP_PORT, V_STEP_BIT, step_out.v);
                     break;
 #endif
+#ifdef W_AXIS
+                case W_AXIS:
+                    DIGITAL_OUT(W_STEP_PORT, W_STEP_BIT, step_out.w);
+                    break;
+#endif
             }
             mask <<= 1;
         }
@@ -769,6 +799,9 @@ inline static __attribute__((always_inline)) void stepper_step_out (axes_signals
   #endif
   #ifdef V_AXIS
     DIGITAL_OUT(V_STEP_PORT, V_STEP_BIT, step_out.v);
+  #endif
+  #ifdef W_AXIS
+    DIGITAL_OUT(W_STEP_PORT, W_STEP_BIT, step_out.w);
   #endif
 #elif STEP_OUTMODE == GPIO_MAP
     STEP_PORT->ODR = (STEP_PORT->ODR & ~STEP_MASK) | step_outmap[step_out.value];
@@ -897,6 +930,11 @@ inline static __attribute__((always_inline)) void stepper_dir_out (axes_signals_
                     DIGITAL_OUT(V_DIRECTION_PORT, V_DIRECTION_BIT, dir_out.v);
                     break;
 #endif
+#ifdef W_AXIS
+                case W_AXIS:
+                    DIGITAL_OUT(W_DIRECTION_PORT, W_DIRECTION_BIT, dir_out.w);
+                    break;
+#endif
             }
             mask <<= 1;
         }
@@ -935,6 +973,9 @@ inline static __attribute__((always_inline)) void stepper_dir_out (axes_signals_
   #endif
   #ifdef V_AXIS
     DIGITAL_OUT(V_DIRECTION_PORT, V_DIRECTION_BIT, dir_out.v);
+  #endif
+  #ifdef W_AXIS
+    DIGITAL_OUT(W_DIRECTION_PORT, W_DIRECTION_BIT, dir_out.w);
   #endif
 #elif DIRECTION_OUTMODE == GPIO_MAP
     DIRECTION_PORT->ODR = (DIRECTION_PORT->ODR & ~DIRECTION_MASK) | dir_outmap[dir_out.value];
@@ -1107,6 +1148,11 @@ static inline __attribute__((always_inline)) void inject_step (axes_signals_t st
                     DIGITAL_OUT(V_STEP_PORT, V_STEP_BIT, step_out.v);
                     break;
 #endif
+#ifdef W_AXIS
+                case W_AXIS:
+                    DIGITAL_OUT(W_STEP_PORT, W_STEP_BIT, step_out.w);
+                    break;
+#endif
             }
         }
         idx--;
@@ -1183,6 +1229,11 @@ void stepperOutputStep (axes_signals_t step_out, axes_signals_t dir_out)
 #ifdef V_AXIS
                     case V_AXIS:
                         DIGITAL_OUT(V_DIRECTION_PORT, V_DIRECTION_BIT, dir_out.v);
+                        break;
+#endif
+#ifdef W_AXIS
+                    case W_AXIS:
+                        DIGITAL_OUT(W_DIRECTION_PORT, W_DIRECTION_BIT, dir_out.w);
                         break;
 #endif
                 }
@@ -1267,6 +1318,9 @@ inline static limit_signals_t limitsGetState()
   #ifdef V_LIMIT_PIN
     signals.min.v = DIGITAL_IN(V_LIMIT_PORT, V_LIMIT_BIT);
   #endif
+  #ifdef W_LIMIT_PIN
+    signals.min.w = DIGITAL_IN(W_LIMIT_PORT, W_LIMIT_BIT);
+  #endif
 #elif LIMIT_INMODE == GPIO_MAP
     uint32_t bits = LIMIT_PORT->IDR;
     signals.min.x = !!(bits & X_LIMIT_BIT);
@@ -1286,6 +1340,9 @@ inline static limit_signals_t limitsGetState()
   #endif
   #ifdef V_LIMIT_PIN
     signals.min.v = !!(bits & V_LIMIT_BIT);
+  #endif
+  #ifdef W_LIMIT_PIN
+    signals.min.w = !!(bits & W_LIMIT_BIT);
   #endif
 #else
     signals.min.value = (uint8_t)((LIMIT_PORT->IDR & LIMIT_MASK) >> LIMIT_INMODE);
@@ -1324,6 +1381,9 @@ inline static limit_signals_t limitsGetState()
 #endif
 #ifdef V_LIMIT_PIN_MAX
     signals.max.v = DIGITAL_IN(V_LIMIT_PORT_MAX, V_LIMIT_BIT_MAX);
+#endif
+#ifdef W_LIMIT_PIN_MAX
+    signals.max.w = DIGITAL_IN(W_LIMIT_PORT_MAX, W_LIMIT_BIT_MAX);
 #endif
 
     if(settings.limits.invert.mask) {
@@ -1917,36 +1977,48 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
                     input->mode.pull_mode = settings->limits.disable_pullup.z ? PullMode_None : PullMode_Up;
                     input->mode.irq_mode = limit_fei.z ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
-
+#ifdef A_AXIS
                 case Input_LimitA:
                 case Input_LimitA_Max:
                     input->mode.pull_mode = settings->limits.disable_pullup.a ? PullMode_None : PullMode_Up;
                     input->mode.irq_mode = limit_fei.a ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
-
+#endif
+#ifdef B_AXIS
                 case Input_LimitB:
                 case Input_LimitB_Max:
                     input->mode.pull_mode = !settings->limits.disable_pullup.b ? PullMode_None : PullMode_Up;
                     input->mode.irq_mode = limit_fei.b ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
-
+#endif
+#ifdef C_AXIS
                 case Input_LimitC:
                 case Input_LimitC_Max:
                     input->mode.pull_mode = settings->limits.disable_pullup.c ? PullMode_None : PullMode_Up;
                     input->mode.irq_mode = limit_fei.c ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
-
+#endif
+#ifdef U_AXIS
                 case Input_LimitU:
                 case Input_LimitU_Max:
                     input->mode.pull_mode = settings->limits.disable_pullup.u ? PullMode_None : PullMode_Up;
                     input->mode.irq_mode = limit_fei.u ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
-
+#endif
+#ifdef V_AXIS
                 case Input_LimitV:
                 case Input_LimitV_Max:
                     input->mode.pull_mode = settings->limits.disable_pullup.v ? PullMode_None : PullMode_Up;
                     input->mode.irq_mode = limit_fei.v ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
+#endif
+#ifdef W_AXIS
+                case Input_LimitW:
+                case Input_LimitW_Max:
+                    input->mode.pull_mode = settings->limits.disable_pullup.w ? PullMode_None : PullMode_Up;
+                    input->mode.irq_mode = limit_fei.w ? IRQ_Mode_Falling : IRQ_Mode_Rising;
+                    break;
+#endif
 
                 case Input_SPIIRQ:
                     input->mode.pull_mode = true;
@@ -2367,7 +2439,7 @@ static bool driver_setup (settings_t *settings)
 #endif
 
 #if SDCARD_ENABLE && defined(SD_DETECT_PIN)
-    if(!DIGITAL_IN(SD_DETECT_PORT, SD_DETECT_PIN))
+    if(!DIGITAL_IN(SD_DETECT_PORT, SD_DETECT_BIT))
         sdcard_detect(true);
 #endif
 
@@ -2526,7 +2598,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "251126";
+    hal.driver_version = "260122";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2643,7 +2715,8 @@ bool driver_init (void)
 #endif
 
 #if EEPROM_ENABLE
-    i2c_eeprom_init();
+    if(!i2c_eeprom_init())
+        task_run_on_startup(task_raise_alarm, (void *)Alarm_NVS_Failed);
 #elif FLASH_ENABLE
     hal.nvs.type = NVS_Flash;
     hal.nvs.size_max = 1024 * 32,
@@ -2895,7 +2968,7 @@ void core_pin_debounce (void *pin)
         }
 #if SDCARD_ENABLE && defined(SD_DETECT_PIN)
         if(input->group & PinGroup_SdCard)
-            sdcard_detect(!DIGITAL_IN(SD_DETECT_PORT, SD_DETECT_PIN)); // TODO: add check for having same state as when isr were invoked?
+            sdcard_detect(!DIGITAL_IN(SD_DETECT_PORT, SD_DETECT_BIT)); // TODO: add check for having same state as when isr were invoked?
 #endif
     }
 
