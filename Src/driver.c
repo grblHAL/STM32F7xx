@@ -429,7 +429,7 @@ static struct {
 #endif
 } step_pulse = {};
 
-#ifdef SAFETY_DOOR_PIN || defined(QEI_SELECT_PIN)
+#ifdef defined(SAFETY_DOOR_PIN) || defined(QEI_SELECT_PIN)
 static pin_debounce_t debounce;
 #endif
 static void aux_irq_handler (uint8_t port, bool state);
@@ -2598,7 +2598,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "260122";
+    hal.driver_version = "260127";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2805,12 +2805,8 @@ bool driver_init (void)
     if(aux_inputs.n_pins || aux_outputs.n_pins)
         ioports_init(&aux_inputs, &aux_outputs);
 
-#if AUX_ANALOG
-  #ifndef MCP3221_ENABLE
     if(aux_analog_in.n_pins || aux_analog_out.n_pins)
-  #endif
         ioports_init_analog(&aux_analog_in, &aux_analog_out);
-#endif
 
     io_expanders_init();
     aux_ctrl_claim_ports(aux_claim_explicit, NULL);
