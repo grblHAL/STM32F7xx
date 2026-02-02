@@ -429,7 +429,7 @@ static struct {
 #endif
 } step_pulse = {};
 
-#ifdef defined(SAFETY_DOOR_PIN) || defined(QEI_SELECT_PIN)
+#if defined(SAFETY_DOOR_PIN) || defined(QEI_SELECT_PIN)
 static pin_debounce_t debounce;
 #endif
 static void aux_irq_handler (uint8_t port, bool state);
