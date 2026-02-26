@@ -24,7 +24,7 @@
 
 /* Internal API */
 
-bool timer_claim (TIM_TypeDef *timer);
+hal_timer_t timer_claim (TIM_TypeDef *timer);
 bool timer_is_claimed (TIM_TypeDef *timer);
 uint32_t timer_clk_enable (TIM_TypeDef *timer);
 uint32_t timer_get_clock_hz (TIM_TypeDef *timer);

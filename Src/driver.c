@@ -60,6 +60,10 @@
 #include "flash.h"
 #endif
 
+#if QEI_ENABLE
+#include "grbl/encoders.h"
+#endif
+
 #if ETHERNET_ENABLE
 #include "enet.h"
 #endif
@@ -71,7 +75,7 @@
 #define STEPPER_TIMER_DIV 4
 #define DRIVER_IRQMASK (LIMIT_MASK|DEVICES_IRQ_MASK)
 
-#if SPINDLE_ENCODER_ENABLE
+#if xSPINDLE_ENCODER_ENABLE
 
 #include "grbl/spindle_sync.h"
 
@@ -429,7 +433,7 @@ static struct {
 #endif
 } step_pulse = {};
 
-#if defined(SAFETY_DOOR_PIN) || defined(QEI_SELECT_PIN)
+#if defined(SAFETY_DOOR_PIN)
 static pin_debounce_t debounce;
 #endif
 static void aux_irq_handler (uint8_t port, bool state);
@@ -1462,11 +1466,6 @@ static void aux_irq_handler (uint8_t port, bool state)
 
     if((aux_in = aux_ctrl_in_get(port))) {
         switch(aux_in->function) {
-#ifdef QEI_SELECT_PIN
-            case Input_QEI_Select:
-                qei_select_handler();
-                break;
-#endif
 #ifdef I2C_STROBE_PIN
             case Input_I2CStrobe:
                 if(i2c_strobe.callback)
@@ -1527,20 +1526,21 @@ static bool aux_claim_explicit (aux_ctrl_t *aux_ctrl)
                 hal.driver_cap.toolsetter = probe_add(Probe_Toolsetter, aux_ctrl->port, pin->cap.irq_mode, aux_ctrl->input, probeGetState);
                 break;
 #endif
-#if SAFETY_DOOR_ENABLE || defined(QEI_SELECT_PIN) || (defined(RESET_PIN) && !ESTOP_ENABLE)
+#if SAFETY_DOOR_ENABLE || (defined(RESET_PIN) && !ESTOP_ENABLE)
   #if defined(RESET_PIN) && !ESTOP_ENABLE
             case Input_Reset:
   #endif
   #if SAFETY_DOOR_ENABLE
             case Input_SafetyDoor:
   #endif
-  #ifdef QEI_SELECT_PIN
-            case Input_QEI_Select:
-  #endif
                 ((input_signal_t *)aux_ctrl->input)->mode.debounce = ((input_signal_t *)aux_ctrl->input)->cap.debounce && hal.driver_cap.software_debounce;
                 break;
 #endif
-            default: break;
+            default:
+#if QEI_ENABLE && defined(QEI_A_PIN) && defined(QEI_B_PIN)
+                encoder_pin_claimed(aux_ctrl->port, pin);
+#endif
+                break;
         }
     }
 
@@ -1608,7 +1608,7 @@ static void aux_assign_irq (void)
     }
 }
 
-#if SPINDLE_ENCODER_ENABLE
+#if xSPINDLE_ENCODER_ENABLE
 
 static spindle_data_t *spindleGetData (spindle_data_request_t request)
 {
@@ -1834,7 +1834,7 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
         hal.stepper.disable_motors((axes_signals_t){0}, SquaringMode_Both);
 #endif
 
-#if SPINDLE_ENCODER_ENABLE
+#if xSPINDLE_ENCODER_ENABLE
 
         static const spindle_data_ptrs_t encoder_data = {
             .get = spindleGetData,
@@ -1987,7 +1987,7 @@ void settings_changed (settings_t *settings, settings_changed_flags_t changed)
 #ifdef B_AXIS
                 case Input_LimitB:
                 case Input_LimitB_Max:
-                    input->mode.pull_mode = !settings->limits.disable_pullup.b ? PullMode_None : PullMode_Up;
+                    input->mode.pull_mode = settings->limits.disable_pullup.b ? PullMode_None : PullMode_Up;
                     input->mode.irq_mode = limit_fei.b ? IRQ_Mode_Falling : IRQ_Mode_Rising;
                     break;
 #endif
@@ -2381,7 +2381,7 @@ static bool driver_setup (settings_t *settings)
 
 #endif
 
-#if SPINDLE_ENCODER_ENABLE
+#if xSPINDLE_ENCODER_ENABLE
 
     RPM_TIMER_CLKEN();
 #if timerAPB2(RPM_TIMER_N)
@@ -2826,6 +2826,11 @@ bool driver_init (void)
     }
 #endif
 
+#ifdef QEI_PORT
+    extern void driver_encoders_init (void);
+    driver_encoders_init();
+#endif
+
 #if ETHERNET_ENABLE
     enet_init();
 #endif
@@ -2912,7 +2917,7 @@ ISR_CODE void STEPPER_TIMER_IRQHandler (void)
 //    DIGITAL_OUT(AUXOUTPUT0_PORT, 1<<AUXOUTPUT0_PIN, 0);
 }
 
-#if SPINDLE_ENCODER_ENABLE
+#if xSPINDLE_ENCODER_ENABLE
 
 ISR_CODE void RPM_COUNTER_IRQHandler (void)
 {
@@ -3227,10 +3232,6 @@ void EXTI15_10_IRQHandler(void)
             spindle_encoder.counter.last_index = rpm_count;
             spindle_encoder.counter.index_count++;
         }
-#endif
-#if QEI_ENABLE && ((QEI_A_BIT|QEI_B_BIT) & 0xFC00)
-        if(ifg & (QEI_A_BIT|QEI_B_BIT))
-            qei_update();
 #endif
 #if (LIMIT_MASK|SD_DETECT_BIT) & 0xFC00
         if(ifg & (LIMIT_MASK|SD_DETECT_BIT))

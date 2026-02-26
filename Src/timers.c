@@ -206,7 +206,7 @@ static dtimer_t *timer_get (TIM_TypeDef *timer)
     return dtimer;
 }
 
-bool timer_claim (TIM_TypeDef *timer)
+hal_timer_t timer_claim (TIM_TypeDef *timer)
 {
     bool claimed = false;
     dtimer_t *dtimer;
@@ -214,7 +214,7 @@ bool timer_claim (TIM_TypeDef *timer)
     if((claimed = (dtimer = timer_get(timer)) && !dtimer->claimed))
         dtimer->claimed = true;
 
-    return claimed;
+    return claimed ? dtimer : NULL;
 }
 
 bool timer_is_claimed (TIM_TypeDef *timer)
@@ -375,6 +375,9 @@ bool timerCfg (hal_timer_t timer, timer_cfg_t *cfg)
             ((dtimer_t *)timer)->timer->DIER |= TIM_DIER_UIE;
         else
             ((dtimer_t *)timer)->timer->DIER &= ~TIM_DIER_UIE;
+
+        HAL_NVIC_SetPriority(((dtimer_t *)timer)->irq, 0, 1);
+        NVIC_EnableIRQ(((dtimer_t *)timer)->irq);
     }
 
     return ok;
