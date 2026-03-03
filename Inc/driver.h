@@ -197,9 +197,7 @@
 
 #endif
 
-#define IS_TIMER_CLAIMED(INSTANCE) (((INSTANCE) == STEPPER_TIMER_BASE) || \
-                                    ((INSTANCE) == RPM_TIMER_BASE) || \
-                                    ((INSTANCE) == RPM_COUNTER_BASE))
+#define IS_TIMER_CLAIMED(INSTANCE) ((INSTANCE) == STEPPER_TIMER_BASE)
 
 // Adjust these values to get more accurate step pulse timings when required, e.g if using high step rates.
 // The default values below are calibrated for 5 microsecond pulses on a F756 @ 180 MHz.
