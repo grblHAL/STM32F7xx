@@ -37,6 +37,7 @@ lib_deps =
   openpnp
   sdcard
   spindle
+  embroidery
   FatFs
   Startup
   Drivers/FATFS/App
