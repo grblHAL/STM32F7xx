@@ -1468,9 +1468,26 @@ static void aux_irq_handler (uint8_t port, bool state)
     }
 }
 
+__attribute__((weak)) void motor_fault_add_pin (input_signal_t *input, xbar_t *pin)
+{
+    // NOOP
+}
+
+#ifdef USE_EXPANDERS
+__attribute__((weak)) bool input_add_expander_pin (xbar_t *pin)
+{
+    return false;
+}
+#endif
+
 static bool aux_claim_explicit (aux_ctrl_t *aux_ctrl)
 {
     xbar_t *pin;
+
+#ifdef USE_EXPANDERS
+    if(aux_ctrl->gpio.port == (void *)EXPANDER_PORT)
+        return input_add_expander_pin((xbar_t *)aux_ctrl->input);
+#endif
 
     if(aux_ctrl->input == NULL) {
 
@@ -1485,7 +1502,10 @@ static bool aux_claim_explicit (aux_ctrl_t *aux_ctrl)
 
     if((pin = aux_ctrl_claim_port(aux_ctrl))) {
 
-        switch(aux_ctrl->function) {
+        if(xbar_is_motor_fault_in(aux_ctrl->function))
+            motor_fault_add_pin(aux_ctrl->input, pin);
+
+        else switch(aux_ctrl->function) {
 #if PROBE_ENABLE
             case Input_Probe:
                 hal.driver_cap.probe = probe_add(Probe_Default, aux_ctrl->port, pin->cap.irq_mode, aux_ctrl->input, probeGetState);

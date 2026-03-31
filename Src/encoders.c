@@ -553,7 +553,7 @@ void driver_encoders_init (void)
             sp_encoder.ccr = &sp_encoder.timer->CCR1;
             sp_encoder.timer->PSC = 0;
             sp_encoder.timer->ARR = 65535;
-            sp_encoder.timer->CCER = TIM_CCER_CC1E;
+ //           sp_encoder.timer->CCER = TIM_CCER_CC1E;
             sp_encoder.timer->SMCR = counters[idx].ecm ? (TIM_SMCR_SMS_0|TIM_SMCR_SMS_1|TIM_SMCR_SMS_2|TIM_SMCR_ETF_2|TIM_SMCR_ETF_3|TIM_SMCR_TS_0|TIM_SMCR_TS_2) : TIM_SMCR_ECE;
 
             HAL_NVIC_EnableIRQ(RPM_COUNTER_IRQn);
@@ -563,7 +563,7 @@ void driver_encoders_init (void)
                 .Pin = (1 << SPINDLE_PULSE_PIN),
                 .Pull = GPIO_NOPULL,
                 .Speed = GPIO_SPEED_FREQ_LOW,
-                .Alternate = GPIO_AF2_TIM3
+                .Alternate = counters[idx].af
             };
 
             HAL_GPIO_Init(SPINDLE_PULSE_PORT, &GPIO_Init);
