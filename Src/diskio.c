@@ -24,7 +24,6 @@
 #if !SDCARD_SDIO
 
 #include "diskio.h"
-#include "spi.h"
 
 #include "grbl/task.h"
 
@@ -53,18 +52,28 @@
 #define TRUE true
 #define FALSE false
 
+#ifndef FATFS_SPI_PRESCALER
+#define FATFS_SPI_PRESCALER SPI_BAUDRATEPRESCALER_16
+#endif
+
+static spi_slave_t dev = {
+    .cs_pin = SD_CS_PIN,
+    .cs_port = SD_CS_PORT,
+    .f_clock = SPI_BAUDRATEPRESCALER_256
+};
+
 /* asserts the CS pin to the card */
 static inline
 void SELECT (void)
 {
-    DIGITAL_OUT(SD_CS_PORT, (1<<SD_CS_PIN), 0);
+    spi_select(&dev);
 }
 
 /* de-asserts the CS pin to the card */
 static inline
 void DESELECT (void)
 {
-    DIGITAL_OUT(SD_CS_PORT, (1<<SD_CS_PIN), 1);
+    spi_deselect(&dev);
 }
 
 /*--------------------------------------------------------------------------
@@ -135,7 +144,8 @@ void send_initial_clock_train(void)
 {
     unsigned int i = 10;
 
-    spi_set_speed(SPI_BAUDRATEPRESCALER_256);
+    dev.f_clock = SPI_BAUDRATEPRESCALER_256;
+    SELECT();
 
     /* Ensure CS is held high. */
     DESELECT();
@@ -182,7 +192,7 @@ void power_on (void)
      * SSI port and pins needed to talk to the card.
      */
 
-    spi_init();
+    spi_start(&dev);
     if(!PowerFlag) {
         task_add_systick(disk_timerproc, NULL);
         PowerFlag = 1;
@@ -190,8 +200,11 @@ void power_on (void)
 }
 
 // set the SSI speed to the max setting
-
-#define set_max_speed() spi_set_max_speed()
+static
+void set_max_speed(void)
+{
+    dev.f_clock = (FATFS_SPI_PRESCALER & SPI_BAUDRATEPRESCALER_256);
+}
 
 static
 void power_off (void)
