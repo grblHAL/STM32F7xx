@@ -1579,7 +1579,7 @@ static void aux_assign_irq (void)
             aux = aux_ctrl_get_fn((aux_gpio_t){ .port = input->port, .pin = input->pin });
 
             if(input->cap.irq_mode == IRQ_Mode_None) {
-                if(aux && xbar_is_probe_in(aux->function))
+                if(aux && (xbar_is_probe_in(aux->function) || xbar_is_motor_fault_in(aux->function)))
                     input->id = aux->function;
             } else {
 
@@ -1588,7 +1588,7 @@ static void aux_assign_irq (void)
 
                 if(irq & input->bit) { // duplicate IRQ
 
-                    if(aux == NULL)
+                    if(aux == NULL || xbar_is_motor_fault_in(aux->function))
                         input->cap.irq_mode = IRQ_Mode_None;
                     else for(j = 0; j < aux_digital_in.n_pins - 1; j++) {
                         input2 = &aux_digital_in.pins.inputs[j];
@@ -2510,7 +2510,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "260410";
+    hal.driver_version = "260517";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
