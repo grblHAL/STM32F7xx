@@ -2510,7 +2510,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "260517";
+    hal.driver_version = "260616";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -3032,7 +3032,7 @@ void EXTI9_5_IRQHandler(void)
             core_pin_irq(ifg);
 #endif
 #if AUXINPUT_MASK & 0x03E0
-        if(ifg & SPINDLE_INDEX_BIT)
+        if(ifg & aux_irq)
             spindle_encoder_index_event();
 #endif
     }
