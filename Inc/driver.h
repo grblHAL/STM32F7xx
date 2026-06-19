@@ -49,7 +49,7 @@
 #include "timers.h"
 
 #define DIGITAL_OUT(port, bit, on) { (port)->BSRR = (on) ? (bit) : ((bit) << 16); }
-#define DIGITAL_IN((port), bit) (!!((port)->IDR & (bit)))
+#define DIGITAL_IN(port, bit) (!!((port)->IDR & (bit)))
 
 #define timer(t) timerN(t)
 #define timerN(t) TIM ## t
