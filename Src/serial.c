@@ -1106,9 +1106,9 @@ static void serial2WriteS (const char *s)
 
 // Writes a number of characters from a buffer to the serial output stream, blocks if buffer full
 //
-static void serial2Write (const char *s, uint16_t length)
+static void serial2Write (const uint8_t *s, uint16_t length)
 {
-    char *ptr = (char *)s;
+	const uint8_t *ptr = s;
 
     while(length--)
         serial2PutC(*ptr++);
@@ -1193,7 +1193,7 @@ static bool serial2Disable (bool disable)
     return true;
 }
 
-static bool serial2EnqueueRtCommand (char c)
+static bool serial2EnqueueRtCommand (uint8_t c)
 {
     return enqueue_realtime_command2(c);
 }
