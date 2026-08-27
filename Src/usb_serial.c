@@ -4,7 +4,7 @@
 
   Part of grblHAL
 
-  Copyright (c) 2019-2024 Terje Io
+  Copyright (c) 2019-2026 Terje Io
 
   grblHAL is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -100,23 +100,6 @@ static inline bool usb_write (void)
 }
 
 //
-// Writes a single character to the USB output stream, blocks if buffer full
-//
-static bool usbPutC (const uint8_t c)
-{
-    static uint8_t buf[1];
-
-    *buf = c;
-
-    while(CDC_Transmit_FS(buf, 1) == USBD_BUSY) {
-        if(!hal.stream_blocking_callback())
-            return false;
-    }
-
-    return true;
-}
-
-//
 // Writes a null terminated string to the USB output stream, blocks if buffer full
 // Buffers string up to EOL (LF) before transmitting
 //
@@ -148,6 +131,25 @@ static void usbWriteS (const char *s)
         if(s[length - 1] == ASCII_LF)
             usb_write();
     }
+}
+
+//
+// Writes a single character to the USB output stream, blocks if buffer full
+//
+static bool usbPutC (const uint8_t c)
+{
+    static uint8_t s[2] = "";
+
+    *s = c;
+
+    if(txbuf.length)
+        usbWriteS((char *)s);
+    else while(CDC_Transmit_FS(s, 1) == USBD_BUSY) {
+        if(!hal.stream_blocking_callback())
+            return false;
+    }
+
+    return true;
 }
 
 //
