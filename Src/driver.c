@@ -2536,7 +2536,7 @@ bool driver_init (void)
 #else
     hal.info = "STM32F756";
 #endif
-    hal.driver_version = "261003";
+    hal.driver_version = "261029";
     hal.driver_url = GRBL_URL "/STM32F7xx";
 #ifdef BOARD_NAME
     hal.board = BOARD_NAME;
@@ -2546,7 +2546,7 @@ bool driver_init (void)
 #endif
     hal.driver_setup = driver_setup;
     hal.f_mcu = HAL_RCC_GetHCLKFreq() / 1000000UL;
-    hal.f_step_timer = HAL_RCC_GetPCLK1Freq() * 2 / STEPPER_TIMER_DIV;
+    hal.f_step_timer = HAL_RCC_GetPCLK1Freq() * (LL_RCC_GetAPB1Prescaler() ? 2 : 1) / STEPPER_TIMER_DIV;
     hal.step_us_min = 1.5f;
 
     hal.rx_buffer_size = RX_BUFFER_SIZE;
@@ -2674,8 +2674,7 @@ bool driver_init (void)
     hal.coolant_cap.bits = COOLANT_ENABLE;
     hal.driver_cap.software_debounce = On;
     hal.driver_cap.step_pulse_delay = On;
-    hal.driver_cap.control_pull_up = On;
-    hal.driver_cap.limits_pull_up = On;
+    hal.driver_cap.pullup_enabled = PULLUPS_ENABLE;
 
     static pin_group_pins_t aux_inputs = {0}, aux_outputs = {0}, aux_analog_in = {0}, aux_analog_out = {0};
 
